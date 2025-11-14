@@ -1,32 +1,79 @@
 @import "tailwindcss";
 
 :root {
-  --surface-primary: #f8fafc;
-  --surface-card: #ffffff;
-  --text-primary: #0f172a;
-  --text-muted: #475569;
+  --hol-navy: #dfe5ff;
+  --hol-blue: #6aa9ff;
+  --hol-purple: #c3a4ff;
+  --hol-green: #76f5aa;
+  --surface-primary: #0b0f2a;
+  --surface-card: #0f1735;
+  --surface-contrast: #182149;
+  --text-primary: #e9edff;
+  --text-muted: #b3bedb;
 }
 
 @theme inline {
   --color-background: var(--surface-primary);
   --color-foreground: var(--text-primary);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-holNavy: #3f4174;
+  --color-holBlue: #5599fe;
+  --color-holPurple: #a679f0;
+  --color-holGreen: #48df7b;
+  --font-sans: var(--font-roboto);
+  --font-mono: var(--font-roboto-mono);
 }
 
 @layer base {
   body {
-    @apply bg-slate-100 text-slate-900 font-sans antialiased;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(166, 121, 240, 0.18), transparent 32%),
+      radial-gradient(circle at 80% 0%, rgba(85, 153, 254, 0.22), transparent 34%),
+      linear-gradient(135deg, #0b0f2a 0%, #0f1735 60%, #0c122f 100%);
+    color: var(--text-primary);
+    @apply font-sans antialiased;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply rounded-md border border-holNavy/30 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)] placeholder:text-holNavy/50 shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30;
   }
 
   h1,
   h2,
   h3,
   h4 {
-    @apply text-slate-900;
+    color: var(--text-primary);
+    font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
   a {
-    @apply text-violet-600 underline-offset-2 transition hover:text-violet-500;
+    color: var(--hol-blue);
+    @apply underline-offset-2 transition;
+  }
+
+  a:hover {
+    color: var(--hol-purple);
+  }
+
+  /* Raise contrast for hol text shades on dark backgrounds */
+  .text-holNavy {
+    color: var(--text-primary) !important;
+  }
+
+  .text-holNavy\/70 {
+    color: color-mix(in srgb, var(--text-primary) 92%, transparent) !important;
+  }
+
+  .text-holNavy\/60 {
+    color: color-mix(in srgb, var(--text-primary) 88%, transparent) !important;
+  }
+
+  .text-holNavy\/50 {
+    color: color-mix(in srgb, var(--text-primary) 82%, transparent) !important;
+  }
+
+  .text-slate-800 {
+    color: color-mix(in srgb, var(--text-primary) 94%, transparent) !important;
   }
 }

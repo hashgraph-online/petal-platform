@@ -496,7 +496,7 @@ export function Inbox({
           href={topicExplorerUrl(topicId)}
           target="_blank"
           rel="noreferrer"
-          className="font-semibold text-violet-600 hover:text-violet-500"
+          className="font-semibold text-holBlue hover:text-holPurple"
         >
           View topic ↗
         </a>
@@ -569,7 +569,7 @@ export function Inbox({
                 <div className="mt-3 flex items-center gap-2">
                   <button
                     type="button"
-                    className="rounded-full bg-violet-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full bg-holBlue px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={
                       !onAcceptRequest || item.status === "processing" || item.status === "accepted"
                     }
@@ -585,7 +585,7 @@ export function Inbox({
                     href={topicExplorerUrl(topicId)}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs font-medium text-violet-600 hover:text-violet-500"
+                    className="text-xs font-medium text-holBlue hover:text-holPurple"
                   >
                     View request ↗
                   </a>

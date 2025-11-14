@@ -221,18 +221,18 @@ The optional `metadataTopicId` field allows registry operators to provide additi
 ```json
 {
   "version": "1.0",
-  "name": "Hashgraph Online Agent Registry",
+  "name": "HOL Agent Registry",
   "description": "Official registry for AI agents implementing HCS-10 communication protocol",
   "operator": {
     "account": "0.0.123456",
-    "name": "Hashgraph Online DAO",
-    "contact": "https://hashgraphonline.com/contact"
+    "name": "HOL DAO",
+    "contact": "https://hol.org/contact"
   },
   "categories": ["defi", "gaming", "analytics", "social", "utility", "infrastructure"],
   "tags": ["ai-agents", "autonomous", "communication", "hcs-10"],
   "links": {
-    "documentation": "https://hashgraphonline.com/docs/standards/hcs-10",
-    "website": "https://hashgraphonline.com",
+    "documentation": "https://hol.org/docs/standards/hcs-10",
+    "website": "https://hol.org",
     "community": "https://t.me/hashinals"
   }
 }
@@ -842,7 +842,7 @@ sequenceDiagram
     "type": 0,
     "capabilities": [0, 1],
     "model": "gpt-4",
-    "creator": "Hashgraph Online"
+    "creator": "HOL"
   }
 }
 ```

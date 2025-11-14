@@ -16,7 +16,7 @@ export function MainNav({ items }: MainNavProps) {
         <Link
           key={item.href}
           href={item.href}
-          className="text-slate-600 transition-colors hover:text-slate-900"
+          className="text-holNavy transition-colors hover:text-holPurple"
         >
           {item.label}
         </Link>

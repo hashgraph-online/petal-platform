@@ -112,77 +112,77 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
     <form className="space-y-6" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-slate-700">Alias</span>
+          <span className="text-sm font-medium text-holNavy">Alias</span>
           <input
             type="text"
             name="alias"
             value={values.alias}
             onChange={handleChange("alias")}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
             placeholder="agent-alias"
             autoComplete="off"
           />
           {errors.alias ? (
             <span className="text-xs text-red-600">{errors.alias}</span>
           ) : (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-holNavy/60">
               Stable identifier used for registry discovery. Lowercase, numbers,
               and dashes only.
             </span>
           )}
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-slate-700">Display name</span>
+          <span className="text-sm font-medium text-holNavy">Display name</span>
           <input
             type="text"
             name="displayName"
             value={values.displayName}
             onChange={handleChange("displayName")}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
             placeholder="Alice (Petal)"
             autoComplete="name"
           />
           {errors.displayName ? (
             <span className="text-xs text-red-600">{errors.displayName}</span>
           ) : (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-holNavy/60">
               Friendly name exposed to other users and floras.
             </span>
           )}
         </label>
       </div>
       <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-slate-700">Avatar URL</span>
+        <span className="text-sm font-medium text-holNavy">Avatar URL</span>
         <input
           type="url"
           name="avatarUrl"
           value={values.avatarUrl}
           onChange={handleChange("avatarUrl")}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
-          placeholder="https://cdn.hashgraph.online/avatars/alice.png"
+          className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+          placeholder="https://cdn.hol.org/avatars/alice.png"
         />
         {errors.avatarUrl ? (
           <span className="text-xs text-red-600">{errors.avatarUrl}</span>
         ) : (
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-holNavy/60">
             Optional image hosted on IPFS or HTTPS to display in messaging and
             floras.
           </span>
         )}
       </label>
       <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-slate-700">Bio</span>
+        <span className="text-sm font-medium text-holNavy">Bio</span>
         <textarea
           name="bio"
           value={values.bio}
           onChange={handleChange("bio")}
-          className="min-h-[120px] w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+          className="min-h-[120px] w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
           placeholder="Summarise this identity for other agents."
         />
         {errors.bio ? (
           <span className="text-xs text-red-600">{errors.bio}</span>
         ) : (
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-holNavy/60">
             Keep bios short and focused. 280 characters max.
           </span>
         )}
@@ -191,7 +191,7 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
         <button
           type="submit"
           disabled={status === "saving"}
-          className="inline-flex items-center justify-center rounded-full bg-violet-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "saving" ? (
             <span className="flex items-center gap-2">
@@ -204,7 +204,7 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
         {statusMessage ? (
           <span
             className={`text-sm ${
-              status === "error" ? "text-red-600" : "text-slate-600"
+              status === "error" ? "text-red-600" : "text-holNavy/70"
             }`}
           >
             {statusMessage}

@@ -17,8 +17,8 @@ export function HeaderControls() {
         onClick={toggleDebug}
         className={`rounded-full border px-3 py-1 text-xs font-semibold shadow-sm transition ${
           debugMode
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-600"
+            ? "border-holGreen/50 bg-holGreen/15 text-holNavy"
+            : "border-holBlue/60 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)] hover:border-holPurple/60 hover:text-holPurple"
         }`}
       >
         {debugMode ? "Debug On" : "Debug"}

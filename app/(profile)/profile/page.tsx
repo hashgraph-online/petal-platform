@@ -273,7 +273,7 @@ export default function ProfilePage() {
                   href={registryLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-violet-600 hover:text-violet-500"
+                  className="font-medium text-holBlue hover:text-holPurple"
                 >
                   View registry topic
                 </a>
@@ -281,7 +281,7 @@ export default function ProfilePage() {
                   href={inboundLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-violet-600 hover:text-violet-500"
+                  className="font-medium text-holBlue hover:text-holPurple"
                 >
                   View inbox topic
                 </a>
@@ -289,7 +289,7 @@ export default function ProfilePage() {
                   href={profileLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-violet-600 hover:text-violet-500"
+                  className="font-medium text-holBlue hover:text-holPurple"
                 >
                   View profile document
                 </a>
@@ -346,10 +346,10 @@ export default function ProfilePage() {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-violet-600">Identity</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Profile</h1>
-        <p className="max-w-2xl text-sm text-slate-600">
+      <header className="space-y-3 rounded-3xl border border-holNavy/25 bg-[rgba(18,24,54,0.9)] p-6 shadow-lg backdrop-blur">
+        <p className="text-sm font-medium text-holBlue">Identity</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Profile</h1>
+        <p className="max-w-2xl text-sm text-[var(--text-primary)]/80">
           Manage your HCS-11 profile, publish updates to the registry, and
           review on-chain metadata tied to the current identity.
         </p>
@@ -369,7 +369,7 @@ export default function ProfilePage() {
                 onClick={handleViewProfile}
                 disabled={viewLoading}
                 title={profileDocument ? "Refresh published profile" : undefined}
-                className="inline-flex items-center justify-center rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {viewLoading ? "Loading…" : "View Profile"}
               </button>

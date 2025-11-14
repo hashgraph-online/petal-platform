@@ -408,14 +408,14 @@ export function ComposeForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="flex gap-2 text-xs font-semibold text-slate-600">
+      <div className="flex gap-2 text-xs font-semibold text-holNavy/70">
         <button
           type="button"
           onClick={() => setMode("direct")}
           className={`rounded-full px-3 py-1 transition ${
             mode === "direct"
-              ? "bg-violet-600 text-white shadow"
-              : "border border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-600"
+              ? "bg-holBlue text-white shadow"
+              : "border border-holBlue/40 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)] hover:border-holPurple/50 hover:text-holPurple"
           }`}
         >
           Direct alias
@@ -426,8 +426,8 @@ export function ComposeForm({
           disabled={connections.length === 0}
           className={`rounded-full px-3 py-1 transition ${
             mode === "connection"
-              ? "bg-violet-600 text-white shadow"
-              : "border border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-600"
+              ? "bg-holBlue text-white shadow"
+              : "border border-holBlue/40 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)] hover:border-holPurple/50 hover:text-holPurple"
           } ${connections.length === 0 ? "cursor-not-allowed opacity-60" : ""}`}
         >
           Connection channel
@@ -436,7 +436,7 @@ export function ComposeForm({
 
       {mode === "direct" ? (
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-700">Recipient alias</label>
+          <label className="text-sm font-medium text-holNavy">Recipient alias</label>
           <div className="relative">
             <input
               type="text"
@@ -450,13 +450,13 @@ export function ComposeForm({
                 setTimeout(() => setIsSuggestionsOpen(false), 120);
               }}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+              className="w-full rounded-md border border-holNavy/30 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-sm shadow-sm text-[var(--text-primary)] focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
               placeholder="alice-agent"
               autoComplete="off"
             />
             {isSuggestionsOpen && filteredSuggestions.length > 0 ? (
-              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-                <ul className="max-h-64 divide-y divide-slate-100 overflow-auto text-sm">
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-holNavy/20 bg-[rgba(18,24,54,0.95)] shadow-lg backdrop-blur">
+                <ul className="max-h-64 divide-y divide-holNavy/25 overflow-auto text-sm text-[var(--text-primary)]">
                   {filteredSuggestions.map((profile, index) => (
                     <li key={profile.accountId}>
                       <button
@@ -467,12 +467,14 @@ export function ComposeForm({
                         }}
                         className={`flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition ${
                           index === activeSuggestionIndex
-                            ? "bg-violet-50"
-                            : "hover:bg-slate-50"
+                            ? "bg-holBlue/20"
+                            : "hover:bg-holNavy/30"
                         }`}
                       >
-                        <span className="font-medium text-slate-900">{profile.displayName ?? profile.alias}</span>
-                        <span className="text-xs text-slate-500">
+                        <span className="font-medium text-[var(--text-primary)]">
+                          {profile.displayName ?? profile.alias}
+                        </span>
+                        <span className="text-xs text-[var(--text-primary)]/70">
                           {profile.alias ? `@${profile.alias}` : profile.accountId}
                         </span>
                       </button>
@@ -482,7 +484,7 @@ export function ComposeForm({
               </div>
             ) : null}
             {isSuggestionsOpen && filteredSuggestions.length === 0 ? (
-              <div className="absolute z-10 mt-1 w-full rounded-lg border border-dashed border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 shadow-lg">
+              <div className="absolute z-10 mt-1 w-full rounded-lg border border-dashed border-holNavy/20 bg-[rgba(18,24,54,0.9)] px-3 py-2 text-xs text-[var(--text-primary)]/70 shadow-lg backdrop-blur">
                 {recipient.trim()
                   ? "No matching profiles in the recent registry snapshot"
                   : "No cached profiles yet. Publish profiles to populate suggestions."}
@@ -495,14 +497,14 @@ export function ComposeForm({
                 key={alias}
                 type="button"
                 onClick={() => handleUseRecent(alias)}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm transition hover:border-violet-200 hover:text-violet-600"
+                className="rounded-full border border-holNavy/25 bg-[rgba(18,24,54,0.85)] px-3 py-1 text-xs font-medium text-[var(--text-primary)] shadow-sm transition hover:border-holBlue/40 hover:text-holPurple"
               >
                 @{alias}
               </button>
             ))}
           </div>
           {resolvedProfile ? (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-holNavy/60">
               Resolved: {resolvedProfile.displayName ?? resolvedProfile.alias ?? resolvedProfile.accountId}
               {resolvedProfile.alias ? ` · @${resolvedProfile.alias}` : ""}
             </p>
@@ -510,11 +512,11 @@ export function ComposeForm({
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-700">Connection channel</label>
+          <label className="text-sm font-medium text-holNavy">Connection channel</label>
           <select
             value={selectedConnectionId}
             onChange={(event) => setSelectedConnectionId(event.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            className="w-full rounded-md border border-holNavy/30 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-sm shadow-sm text-[var(--text-primary)] focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
           >
             {connections.map((connection) => (
               <option key={connection.connectionTopicId} value={connection.connectionTopicId}>
@@ -523,20 +525,20 @@ export function ComposeForm({
             ))}
           </select>
           {selectedConnection ? (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-holNavy/60">
               Chat with {selectedConnection.contactDisplayName ?? selectedConnection.contactAlias ?? selectedConnection.contactAccountId}
             </p>
           ) : null}
         </div>
       )}
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-holNavy">
           {mode === "direct" ? "Connection note (optional)" : "Message"}
         </label>
         <textarea
           value={message}
           onChange={(event) => setMessage(event.target.value)}
-          className="min-h-[120px] w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+          className="min-h-[120px] w-full rounded-md border border-holNavy/30 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-sm shadow-sm text-[var(--text-primary)] focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
           placeholder={
             mode === "direct"
               ? "Share context or intent for the connection"
@@ -545,17 +547,17 @@ export function ComposeForm({
         />
       </div>
       {mode === "direct" && status === "resolving" ? (
-        <p className="flex items-center gap-2 text-xs text-slate-500">
+        <p className="flex items-center gap-2 text-xs text-holNavy/60">
           <Spinner size="sm" /> Looking up profile…
         </p>
       ) : null}
       {statusMessage ? (
-        <p className="text-sm text-slate-600">{statusMessage}</p>
+        <p className="text-sm text-holNavy/70">{statusMessage}</p>
       ) : null}
       <button
         type="submit"
         disabled={!isReady || status !== "idle"}
-        className="inline-flex items-center justify-center rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {status === "sending" ? (
           <span className="flex items-center gap-2">
@@ -568,7 +570,7 @@ export function ComposeForm({
         )}
       </button>
       {!isReady ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-holNavy/60">
           {mode === "direct"
             ? "Resolve a contact and ensure your identity has published inbound & outbound topics."
             : "Select a connection channel to start chatting."}

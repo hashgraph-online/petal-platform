@@ -210,8 +210,8 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">{flora.name}</h2>
-          <p className="text-xs text-slate-500">
+          <h2 className="text-2xl font-semibold text-holNavy">{flora.name}</h2>
+          <p className="text-xs text-holNavy/60">
             {flora.status === "pending" ? "Awaiting confirmations" : "Active"} · Topics: Comm {communicationTopic}
           </p>
         </div>
@@ -220,8 +220,8 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
           onClick={() => onToggleMute(flora.id)}
           className={`rounded-full px-4 py-1 text-xs font-semibold shadow-sm transition ${
             muted
-              ? "bg-slate-200 text-slate-600 hover:bg-slate-300"
-              : "bg-violet-600 text-white hover:bg-violet-500"
+              ? "bg-holNavy/10 text-holNavy hover:bg-holNavy/20"
+              : "bg-holBlue text-white hover:bg-holPurple"
           }`}
         >
           {muted ? "Muted" : "Mute"}
@@ -230,23 +230,23 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-slate-700">Communication</h3>
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <ul className="space-y-2 text-sm text-slate-700 max-h-72 overflow-y-auto">
+          <h3 className="text-sm font-medium text-holNavy">Communication</h3>
+          <div className="rounded-lg border border-holNavy/10 bg-white/90 p-4 shadow-sm">
+            <ul className="max-h-72 space-y-2 overflow-y-auto text-sm text-holNavy">
               {commEvents.map((event) => (
-                <li key={event.id} className="rounded border border-slate-100 p-2">
+                <li key={event.id} className="rounded border border-holNavy/10 p-2">
                   <p
-                    className="font-medium text-slate-900"
+                    className="font-medium text-holNavy"
                     title={(event.payload as FloraChatMessage)?.from}
                   >
                     {memberNames[(event.payload as FloraChatMessage)?.from ?? ""] ?? (event.payload as FloraChatMessage)?.from ?? "Unknown"}
                   </p>
                   <p>{(event.payload as FloraChatMessage)?.content ?? ""}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-holNavy/60">
                     {new Date(Number(event.timestamp) * 1000).toLocaleString()}
                   </p>
                   {debugMode ? (
-                    <pre className="mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-[11px] text-slate-600">
+                    <pre className="mt-1 overflow-x-auto rounded bg-holBlue/10 p-2 text-[11px] text-holNavy/70">
                       {JSON.stringify(event.payload, null, 2)}
                     </pre>
                   ) : null}
@@ -258,13 +258,13 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
                 value={chatMessage}
                 onChange={(event) => setChatMessage(event.target.value)}
                 disabled={!canInteract}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
                 placeholder="Share an update with the flora"
               />
               <button
                 type="submit"
                 disabled={!canInteract || muted}
-                className="rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full bg-holBlue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Send message
               </button>
@@ -273,24 +273,24 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-slate-700">Proposals & Votes</h3>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+          <h3 className="text-sm font-medium text-holNavy">Proposals & Votes</h3>
+          <div className="space-y-3 rounded-lg border border-holNavy/10 bg-white/90 p-4 shadow-sm">
             <div>
-              <h4 className="text-xs font-semibold uppercase text-slate-500">Proposals</h4>
-              <ul className="mt-2 space-y-2 text-sm text-slate-700 max-h-60 overflow-y-auto">
+              <h4 className="text-xs font-semibold uppercase text-holNavy/60">Proposals</h4>
+              <ul className="mt-2 max-h-60 space-y-2 overflow-y-auto text-sm text-holNavy">
                 {txEvents
                   .filter((event) => (event.payload as { type?: string })?.type === "flora_proposal")
                   .map((event) => {
                     const payload = event.payload as FloraProposalMessage;
                     return (
-                      <li key={event.id} className="rounded border border-slate-100 p-2">
-                        <p className="font-semibold text-slate-900">Proposal {payload.proposalId}</p>
+                      <li key={event.id} className="rounded border border-holNavy/10 p-2">
+                        <p className="font-semibold text-holNavy">Proposal {payload.proposalId}</p>
                         <p>{payload.text}</p>
-                        <p className="text-xs text-slate-500" title={payload.from}>
+                        <p className="text-xs text-holNavy/60" title={payload.from}>
                           By {memberNames[payload.from] ?? payload.from}
                         </p>
                         {debugMode ? (
-                          <pre className="mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-[11px] text-slate-600">
+                          <pre className="mt-1 overflow-x-auto rounded bg-holBlue/10 p-2 text-[11px] text-holNavy/70">
                             {JSON.stringify(payload, null, 2)}
                           </pre>
                         ) : null}
@@ -306,7 +306,7 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
                   value={proposalId}
                   onChange={(event) => setProposalId(event.target.value)}
                   disabled={!canInteract}
-                  className="w-40 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="w-40 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
                   placeholder="proposal-id"
                 />
                 <input
@@ -314,14 +314,14 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
                   value={proposalText}
                   onChange={(event) => setProposalText(event.target.value)}
                   disabled={!canInteract}
-                  className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="flex-1 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
                   placeholder="Describe the proposal"
                 />
               </div>
               <button
                 type="submit"
                 disabled={!canInteract || muted}
-                className="rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full bg-holBlue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Publish proposal
               </button>
@@ -333,14 +333,14 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
                   value={voteProposalId}
                   onChange={(event) => setVoteProposalId(event.target.value)}
                   disabled={!canInteract}
-                  className="w-40 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="w-40 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
                   placeholder="proposal-id"
                 />
                 <select
                   value={voteChoice}
                   onChange={(event) => setVoteChoice(event.target.value as "yes" | "no")}
                   disabled={!canInteract}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                  className="rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
                 >
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
@@ -349,7 +349,7 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
               <button
                 type="submit"
                 disabled={!canInteract || muted}
-                className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full bg-holNavy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Submit vote
               </button>
@@ -359,25 +359,25 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-medium text-slate-700">State Updates</h3>
-        <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
-          <ul className="space-y-2 text-sm text-slate-700 max-h-60 overflow-y-auto">
+        <h3 className="text-sm font-medium text-holNavy">State Updates</h3>
+        <div className="space-y-3 rounded-lg border border-holNavy/10 bg-white/90 p-4 shadow-sm">
+          <ul className="max-h-60 space-y-2 overflow-y-auto text-sm text-holNavy">
             {stateEvents.map((event) => {
               const payload = event.payload as FloraStateMessage;
               return (
-                <li key={event.id} className="rounded border border-slate-100 p-2">
-                  <p className="font-semibold text-slate-900" title={payload.from}>
+                <li key={event.id} className="rounded border border-holNavy/10 p-2">
+                  <p className="font-semibold text-holNavy" title={payload.from}>
                     {memberNames[payload.from] ?? payload.from}
                   </p>
                   <p>{payload.summary}</p>
                   {payload.stateHash ? (
-                    <p className="text-xs text-slate-500">State hash: {payload.stateHash}</p>
+                    <p className="text-xs text-holNavy/60">State hash: {payload.stateHash}</p>
                   ) : null}
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-holNavy/60">
                     {new Date(Number(event.timestamp) * 1000).toLocaleString()}
                   </p>
                   {debugMode ? (
-                    <pre className="mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-[11px] text-slate-600">
+                    <pre className="mt-1 overflow-x-auto rounded bg-holBlue/10 p-2 text-[11px] text-holNavy/70">
                       {JSON.stringify(payload, null, 2)}
                     </pre>
                   ) : null}
@@ -390,13 +390,13 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
               value={stateSummary}
               onChange={(event) => setStateSummary(event.target.value)}
               disabled={!canInteract}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+              className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
               placeholder="Summarize the latest flora state. Include hashes when available."
             />
             <button
               type="submit"
               disabled={!canInteract || muted}
-              className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-holNavy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
             >
               Publish state update
             </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   collectStorageSnapshot,
   clearAllStorage,
@@ -22,10 +23,15 @@ export function CacheToolsButton() {
   const { debugMode } = useDebug();
   const { pushToast } = useToast();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [entries, setEntries] = useState<StorageSnapshotEntry[]>([]);
   const [referenceNow, setReferenceNow] = useState(() => Date.now());
 
   const hasEntries = entries.length > 0;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect */
@@ -65,68 +71,83 @@ export function CacheToolsButton() {
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-violet-200 hover:text-violet-600"
+        className="rounded-full border border-holBlue/50 bg-[rgba(18,24,54,0.85)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)] shadow-sm transition hover:border-holPurple/60 hover:text-holPurple"
       >
         Cache Tools
       </button>
-      {open ? (
-        <div className="absolute right-0 z-40 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>
-              {totals.count} entries · {totals.namespaces} namespaces
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleRefresh}
-                className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-violet-200 hover:text-violet-600"
+      {open && mounted
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-start justify-end bg-slate-950/60 px-4 py-8"
+              onClick={() => setOpen(false)}
+              role="presentation"
+            >
+              <div
+                className="w-full max-w-md rounded-2xl border border-holNavy/30 bg-[rgba(12,18,47,0.95)] p-4 shadow-2xl backdrop-blur"
+                onClick={(event) => event.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Cache tools"
               >
-                Refresh
-              </button>
-              <button
-                type="button"
-                onClick={handleClear}
-                className="rounded-full border border-red-200 px-2 py-1 text-[10px] font-semibold text-red-600 hover:border-red-300"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto text-xs">
-            {hasEntries ? (
-              entries.map((entry) => (
-                <div
-                  key={entry.key}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-2"
-                >
-                  <p className="font-semibold text-slate-700">{entry.namespace}</p>
-                  <p className="text-[11px] text-slate-500">Key: {entry.key}</p>
-                  {entry.accountId ? (
-                    <p className="text-[11px] text-slate-500">Account: {entry.accountId}</p>
-                  ) : null}
-                  {entry.updatedAt ? (
-                    <p className="text-[11px] text-slate-500">
-                      Updated {formatDuration(referenceNow - entry.updatedAt)} ago
-                    </p>
-                  ) : null}
-                  {entry.expiresAt ? (
-                    <p className="text-[11px] text-slate-500">
-                      Expires in {formatDuration(entry.expiresAt - referenceNow)}
-                    </p>
-                  ) : null}
-                  <pre className="mt-1 overflow-x-auto rounded bg-white p-2 text-[10px] text-slate-600">
-                    {JSON.stringify(entry.value, null, 2)}
-                  </pre>
+                <div className="flex items-center justify-between text-xs text-[var(--text-primary)]/80">
+                  <span>
+                    {totals.count} entries · {totals.namespaces} namespaces
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRefresh}
+                      className="rounded-full border border-holBlue/50 bg-[rgba(18,24,54,0.85)] px-2 py-1 text-[10px] font-semibold text-[var(--text-primary)] hover:border-holPurple/60 hover:text-holPurple"
+                    >
+                      Refresh
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClear}
+                      className="rounded-full border border-rose-500/60 bg-rose-900/40 px-2 py-1 text-[10px] font-semibold text-rose-100 hover:border-rose-400"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-slate-500">
-                No cached entries in the current session.
-              </p>
-            )}
-          </div>
-        </div>
-      ) : null}
+                <div className="mt-3 max-h-64 space-y-2 overflow-y-auto text-xs">
+                  {hasEntries ? (
+                    entries.map((entry) => (
+                      <div
+                        key={entry.key}
+                        className="rounded-lg border border-holNavy/25 bg-[rgba(18,24,54,0.9)] p-2"
+                      >
+                        <p className="font-semibold text-[var(--text-primary)]">{entry.namespace}</p>
+                        <p className="text-[11px] text-[var(--text-primary)]/70">Key: {entry.key}</p>
+                        {entry.accountId ? (
+                          <p className="text-[11px] text-[var(--text-primary)]/70">Account: {entry.accountId}</p>
+                        ) : null}
+                        {entry.updatedAt ? (
+                          <p className="text-[11px] text-[var(--text-primary)]/70">
+                            Updated {formatDuration(referenceNow - entry.updatedAt)} ago
+                          </p>
+                        ) : null}
+                        {entry.expiresAt ? (
+                          <p className="text-[11px] text-[var(--text-primary)]/70">
+                            Expires in {formatDuration(entry.expiresAt - referenceNow)}
+                          </p>
+                        ) : null}
+                        <pre className="mt-1 overflow-x-auto rounded bg-[rgba(12,18,47,0.9)] p-2 text-[10px] text-[var(--text-primary)]/80">
+                          {JSON.stringify(entry.value, null, 2)}
+                        </pre>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-holNavy/25 bg-[rgba(18,24,54,0.8)] p-3 text-[var(--text-primary)]/70">
+                      No cached entries in the current session.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

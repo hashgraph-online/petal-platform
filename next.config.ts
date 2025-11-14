@@ -27,6 +27,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  images: {
+    formats: ["image/avif", "image/webp"],
+  },
   webpack: (config, { isServer }) => {
     config.plugins = config.plugins ?? [];
     if (!isServer) {
@@ -34,19 +37,6 @@ const nextConfig: NextConfig = {
       config.plugins.push(
         new webpack.NormalModuleReplacementPlugin(/^node:module$/, nodeModulePolyfill),
       );
-
-      config.resolve = config.resolve ?? {};
-      config.resolve.fallback = {
-        ...(config.resolve.fallback ?? {}),
-        fs: false,
-        net: false,
-        tls: false,
-        dns: false,
-      };
-      config.resolve.alias = {
-        ...(config.resolve.alias ?? {}),
-        ioredis: false,
-      };
     } else {
       config.optimization = config.optimization ?? {};
       config.optimization.concatenateModules = false;
@@ -63,6 +53,20 @@ const nextConfig: NextConfig = {
         config.externals = [config.externals, ...externalModules];
       }
     }
+    config.resolve = config.resolve ?? {};
+    config.resolve.fallback = {
+      ...(config.resolve.fallback ?? {}),
+      buffer: require.resolve("buffer/"),
+      fs: false,
+      net: false,
+      tls: false,
+      dns: false,
+    };
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      "node:buffer": "buffer",
+      ioredis: false,
+    };
     return config;
   },
 };

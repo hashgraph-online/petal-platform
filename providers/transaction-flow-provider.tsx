@@ -226,14 +226,14 @@ function StatusIcon({ status }: { status: TransactionStepStatus }) {
 
   if (status === "skipped") {
     return (
-      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-[10px] font-semibold text-slate-400">
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-holNavy/40 text-[10px] font-semibold text-holNavy/50">
         •
       </span>
     );
   }
 
   return (
-    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-200 text-[10px] font-semibold text-slate-300">
+    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-holNavy/30 text-[10px] font-semibold text-holNavy/40">
       •
     </span>
   );
@@ -251,25 +251,25 @@ function TransactionFlowOverlay() {
 
   return (
     <div
-      className="pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 px-4 py-8"
+      className="pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 px-4 py-8"
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-holNavy/30 bg-[rgba(12,18,47,0.95)] p-5 shadow-2xl backdrop-blur">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-violet-500">Transaction flow</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">{flow.title}</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-holBlue">Transaction flow</p>
+            <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{flow.title}</h2>
             {flow.subtitle ? (
-              <p className="mt-1 text-sm text-slate-600">{flow.subtitle}</p>
+              <p className="mt-1 text-sm text-[var(--text-primary)]/80">{flow.subtitle}</p>
             ) : null}
           </div>
           <button
             type="button"
-            className={`rounded-full border border-slate-200 px-2 py-1 text-xs font-medium transition ${
+            className={`rounded-full border border-holBlue/50 bg-[rgba(18,24,54,0.85)] px-2 py-1 text-xs font-medium transition ${
               canDismiss
-                ? "text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                : "cursor-not-allowed text-slate-300"
+                ? "text-[var(--text-primary)] hover:border-holPurple/60 hover:text-holPurple"
+                : "cursor-not-allowed text-holNavy/30"
             }`}
             onClick={() => {
               if (canDismiss) {
@@ -281,6 +281,10 @@ function TransactionFlowOverlay() {
             Close
           </button>
         </div>
+        <p className="mt-3 rounded-lg border border-holBlue/30 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-xs text-[var(--text-primary)]/80">
+          Some steps can take a moment to finalize. If the step indicator moves or pauses on a
+          transaction, check your wallet for a pending request and approve it to keep things moving.
+        </p>
         <div className="mt-4 space-y-3">
           {flow.steps.map((step) => (
             <div key={step.id} className="flex items-start gap-3">
@@ -288,21 +292,21 @@ function TransactionFlowOverlay() {
                 <StatusIcon status={step.status} />
               </span>
               <div className="flex-1">
-                <p className="text-sm font-medium text-slate-800">{step.label}</p>
+                <p className="text-sm font-medium text-[var(--text-primary)]">{step.label}</p>
                 {step.note ? (
-                  <p className="text-xs text-slate-500">{step.note}</p>
+                  <p className="text-xs text-[var(--text-primary)]/75">{step.note}</p>
                 ) : null}
               </div>
             </div>
           ))}
         </div>
         {flow.stage === "failed" && flow.error ? (
-          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-600">
+          <div className="mt-4 rounded-lg border border-rose-500/50 bg-rose-900/40 p-3 text-sm text-rose-100">
             {flow.error}
           </div>
         ) : null}
         {flow.stage === "completed" && flow.resultNote ? (
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+          <div className="mt-4 rounded-lg border border-emerald-400/50 bg-emerald-900/30 p-3 text-sm text-emerald-100">
             {flow.resultNote}
           </div>
         ) : null}

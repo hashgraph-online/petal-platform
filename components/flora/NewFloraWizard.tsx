@@ -128,29 +128,29 @@ export function NewFloraWizard() {
   return (
     <form className="space-y-4" onSubmit={handleCreateFlora}>
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-slate-700">Flora name</label>
+        <label className="text-sm font-medium text-holNavy">Flora name</label>
         <input
           type="text"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+          className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
           placeholder="Agent coordination group"
         />
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm font-medium text-slate-700">Invite members</p>
+        <p className="text-sm font-medium text-holNavy">Invite members</p>
         <div className="flex gap-2">
           <input
             type="text"
             value={aliasInput}
             onChange={(event) => setAliasInput(event.target.value)}
-            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            className="flex-1 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
             placeholder="alice-agent"
           />
           <button
             type="button"
-            className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full bg-holNavy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
             disabled={status === "resolving"}
             onClick={handleAddInvitee}
           >
@@ -195,12 +195,12 @@ export function NewFloraWizard() {
       </div>
 
       {statusMessage ? (
-        <p className="text-sm text-slate-600">{statusMessage}</p>
+        <p className="text-sm text-holNavy/70">{statusMessage}</p>
       ) : null}
 
       <button
         type="submit"
-        className="inline-flex items-center justify-center rounded-full bg-violet-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={!canCreate || status === "creating"}
       >
         {status === "creating" ? (
@@ -212,7 +212,7 @@ export function NewFloraWizard() {
         )}
       </button>
       {!signer ? (
-        <p className="text-xs text-slate-500">Connect your wallet to create a flora.</p>
+        <p className="text-xs text-holNavy/60">Connect your wallet to create a flora.</p>
       ) : null}
     </form>
   );

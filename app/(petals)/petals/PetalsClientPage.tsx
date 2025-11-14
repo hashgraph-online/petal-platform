@@ -256,15 +256,19 @@ export default function PetalsPage() {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-violet-600">Multi-account</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Petal Accounts</h1>
-        <p className="max-w-2xl text-sm text-slate-600">
+      <header className="space-y-3 rounded-3xl border border-holNavy/25 bg-[rgba(18,24,54,0.9)] p-6 shadow-lg backdrop-blur">
+        <p className="text-sm font-medium text-holBlue">Multi-account</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Petal Accounts</h1>
+        <p className="max-w-2xl text-sm text-[var(--text-primary)]/80">
           Create, fund, and switch between HCS-15 petal identities that share
           your key material while keeping assets and personas organized.
         </p>
+        <p className="text-xs text-[var(--text-primary)]/70">
+          HCS-15 powers petals by anchoring their account memos and registry entries to a shared key,
+          so each persona stays portable while inheriting the base signature authority.
+        </p>
         {statusMessage ? (
-          <p className="text-sm text-emerald-600">{statusMessage}</p>
+          <p className="text-sm text-holGreen">{statusMessage}</p>
         ) : null}
       </header>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -301,7 +305,7 @@ export default function PetalsPage() {
                 onSubmit={handleProfileSubmit}
               />
             ) : (
-              <p className="rounded-md border border-dashed border-slate-300 bg-slate-50/50 p-4 text-sm text-slate-600">
+              <p className="rounded-md border border-dashed border-holNavy/30 bg-[rgba(18,24,54,0.7)] p-4 text-sm text-[var(--text-primary)]/75">
                 Select a petal from the directory to manage its profile metadata.
               </p>
             )}

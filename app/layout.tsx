@@ -1,32 +1,41 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import Image from "next/image";
+import { Roboto, Roboto_Mono } from "next/font/google";
 import { MainNav } from "@/components/navigation/main-nav";
 import { HeaderControls } from "@/components/header/HeaderControls";
 import { AppProviders } from "./providers";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const roboto = Roboto({
+  variable: "--font-roboto",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const robotoMono = Roboto_Mono({
+  variable: "--font-roboto-mono",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 const navItems = [
   { href: "/profile", label: "Profile" },
   { href: "/petals", label: "Petals" },
   { href: "/messages", label: "Messages" },
-  { href: "/flora", label: "Floras" },
 ];
 
 export const metadata: Metadata = {
-  title: "Petal Platform",
+  title: "HOL Petal Platform",
   description:
-    "Hedera dApp for profiles, petals, messaging, and flora coordination.",
+    "HOL-built Hedera dApp for profiles, petals, and messaging.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -37,14 +46,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-slate-50 text-slate-900 antialiased`}
+        className={`${roboto.variable} ${robotoMono.variable} antialiased`}
       >
         <AppProviders>
           <div className="flex min-h-screen flex-col">
-            <header className="border-b border-slate-200 bg-white">
+            <header className="border-b border-holNavy/25 bg-[rgba(18,24,54,0.85)] backdrop-blur shadow-lg">
               <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-                <Link href="/" className="text-lg font-semibold tracking-tight">
-                  Petal Platform
+                <Link
+                  href="/"
+                  className="flex items-center gap-3 text-lg font-semibold tracking-tight text-holNavy"
+                >
+                  <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-holBlue/50 bg-[rgba(18,24,54,0.95)]">
+                    <Image src="/logo.png" alt="HOL logo" width={40} height={40} priority />
+                  </span>
+                  <span>Petal Platform</span>
                 </Link>
                 <MainNav items={navItems} />
                 <HeaderControls />

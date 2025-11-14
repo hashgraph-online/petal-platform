@@ -54,12 +54,16 @@ export default function FloraPage() {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-violet-600">Coordination</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Flora Groups</h1>
-        <p className="max-w-2xl text-sm text-slate-600">
+      <header className="space-y-3 rounded-3xl border border-holNavy/25 bg-[rgba(18,24,54,0.9)] p-6 shadow-lg backdrop-blur">
+        <p className="text-sm font-medium text-holBlue">Coordination</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Flora Groups</h1>
+        <p className="max-w-2xl text-sm text-[var(--text-primary)]/80">
           Coordinate multi-party activity using HCS-16 flora topics for
           communication, proposals, and state tracking.
+        </p>
+        <p className="text-xs text-[var(--text-primary)]/70">
+          HCS-16 links three coordinated topics (comm, transaction, state) so every flora keeps chat,
+          proposals, and outcomes in sync for all members without a central server.
         </p>
       </header>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

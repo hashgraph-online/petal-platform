@@ -570,27 +570,40 @@ export default function MessagesPage() {
 
   return (
     <section className="space-y-6">
-      <header className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+      <header className="rounded-3xl border border-holNavy/20 bg-[rgba(18,24,54,0.9)] p-6 shadow-lg backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">Chats</p>
-            <h1 className="mt-1 text-3xl font-semibold text-slate-900">Messages</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-wide text-holBlue">Chats</p>
+            <h1 className="mt-1 text-3xl font-semibold text-holNavy">Messages</h1>
+            <p className="mt-2 max-w-2xl text-sm text-holNavy/70">
               Inspired by modern messengers: browse channels, catch inbound pings, and spin up new
               conversations powered by HCS-10.
             </p>
+            <p className="mt-2 text-xs text-[var(--text-primary)]/70">
+              HCS-10 keeps direct messages tamper-evident on Hedera and ties discovery to HCS-2/HCS-11
+              aliases, so inboxes stay portable across apps.
+            </p>
+            <div className="mt-3 space-y-2 text-xs text-[var(--text-primary)]/75">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/60 bg-amber-900/30 px-3 py-1 font-semibold text-amber-100">
+                Alpha: Messaging is experimental — expect rough edges.
+              </div>
+              <p className="rounded-lg border border-rose-500/50 bg-rose-900/40 px-3 py-2 text-rose-100">
+                Network visibility: messages are on-chain and readable. Be cautious with links and
+                unknown senders to avoid scams.
+              </p>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
-            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-800">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-holNavy/70">
+            <span className="rounded-full bg-holBlue/10 px-3 py-1 font-semibold text-holNavy">
               {connections.length} connections
             </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-800">
+            <span className="rounded-full bg-holBlue/10 px-3 py-1 font-semibold text-holNavy">
               {pendingRequests.length} pending
             </span>
             <button
               type="button"
               onClick={handleStartNewConversation}
-              className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500"
+              className="inline-flex items-center gap-2 rounded-full bg-holBlue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple"
             >
               New chat
               <span aria-hidden="true">+</span>
@@ -600,36 +613,36 @@ export default function MessagesPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="flex h-[calc(100vh-220px)] min-h-[720px] flex-col rounded-3xl border border-slate-200 bg-white/90 shadow-sm overflow-hidden">
-          <div className="border-b border-slate-100 p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active identity</p>
+        <aside className="flex h-[calc(100vh-220px)] min-h-[720px] flex-col overflow-hidden rounded-3xl border border-holNavy/20 bg-[rgba(18,24,54,0.9)] shadow-lg backdrop-blur">
+          <div className="border-b border-holNavy/25 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-holNavy/60">Active identity</p>
             <div className="mt-2">
-              <h2 className="text-xl font-semibold text-slate-900">{identityLabel}</h2>
-              <p className="text-xs text-slate-500">{activeIdentity?.accountId ?? "Connect wallet"}</p>
+              <h2 className="text-xl font-semibold text-holNavy">{identityLabel}</h2>
+              <p className="text-xs text-holNavy/60">{activeIdentity?.accountId ?? "Connect wallet"}</p>
             </div>
-            <dl className="mt-4 grid gap-3 text-xs text-slate-500">
+            <dl className="mt-4 grid gap-3 text-xs text-holNavy/60">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <dt className="text-slate-400">Inbound topic</dt>
-                  <dd className="truncate font-medium text-slate-700">{resolvedInboundTopicId ?? "—"}</dd>
+                  <dt className="text-holNavy/50">Inbound topic</dt>
+                  <dd className="truncate font-medium text-holNavy">{resolvedInboundTopicId ?? "—"}</dd>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleCopy(resolvedInboundTopicId, "Inbound topic")}
-                  className="font-semibold text-violet-600 hover:text-violet-500"
+                  className="font-semibold text-holBlue hover:text-holPurple"
                 >
                   Copy
                 </button>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <dt className="text-slate-400">Outbound topic</dt>
-                  <dd className="truncate font-medium text-slate-700">{resolvedOutboundTopicId ?? "—"}</dd>
+                  <dt className="text-holNavy/50">Outbound topic</dt>
+                  <dd className="truncate font-medium text-holNavy">{resolvedOutboundTopicId ?? "—"}</dd>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleCopy(resolvedOutboundTopicId, "Outbound topic")}
-                  className="font-semibold text-violet-600 hover:text-violet-500"
+                  className="font-semibold text-holBlue hover:text-holPurple"
                 >
                   Copy
                 </button>
@@ -637,14 +650,14 @@ export default function MessagesPage() {
             </dl>
           </div>
 
-          <div className="border-b border-slate-100 p-4">
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
+          <div className="border-b border-holNavy/25 p-4">
+            <label className="text-xs font-semibold uppercase tracking-wide text-holNavy/60">Search</label>
             <input
               type="search"
               value={connectionQuery}
               onChange={(event) => setConnectionQuery(event.target.value)}
               placeholder="Search chats"
-              className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
+              className="mt-1 w-full rounded-2xl border border-holNavy/20 bg-[rgba(18,24,54,0.85)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/20"
             />
           </div>
 
@@ -653,7 +666,7 @@ export default function MessagesPage() {
               <button
                 type="button"
                 onClick={() => setIsChatsOpen((prev) => !prev)}
-                className="flex items-center justify-between px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                className="flex items-center justify-between px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-holNavy/60"
               >
                 <span>Chats</span>
                 <span className="flex items-center gap-2">
@@ -670,7 +683,7 @@ export default function MessagesPage() {
               >
                 {isChatsOpen ? (
                   filteredConnections.length === 0 ? (
-                    <p className="px-2 text-sm text-slate-500">
+                    <p className="px-2 text-sm text-holNavy/60">
                       {connections.length === 0
                         ? "No channels yet. Accept a request or start a direct message."
                         : "No chats match that filter."}
@@ -688,20 +701,20 @@ export default function MessagesPage() {
                           onClick={() => handleSelectConnection(connection.connectionTopicId)}
                           className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition ${
                             isActive
-                              ? "bg-violet-600 text-white shadow"
-                              : "hover:bg-slate-100"
+                              ? "bg-holBlue text-white shadow"
+                              : "hover:bg-holBlue/10"
                           }`}
                         >
                           <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                            isActive ? "bg-white/20" : "bg-slate-200 text-slate-600"
+                            isActive ? "bg-white/20" : "bg-holNavy/30 text-[var(--text-primary)]"
                           }`}>
                             {label.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1">
-                            <p className={`text-sm font-semibold ${isActive ? "text-white" : "text-slate-900"}`}>
+                            <p className={`text-sm font-semibold ${isActive ? "text-white" : "text-[var(--text-primary)]"}`}>
                               {label}
                             </p>
-                            <p className={`text-xs ${isActive ? "text-violet-100" : "text-slate-500"}`}>
+                            <p className={`text-xs ${isActive ? "text-white/80" : "text-holNavy/60"}`}>
                               Topic {connection.connectionTopicId}
                             </p>
                           </div>
@@ -714,16 +727,16 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 px-4 pb-4 pt-3 space-y-4 overflow-y-auto max-h-[240px]">
+          <div className="border-t border-holNavy/25 px-4 pb-4 pt-3 space-y-4 overflow-y-auto max-h-[240px]">
             <div>
               <button
                 type="button"
                 onClick={() => setIsRequestsOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500"
+                className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-holNavy/60"
               >
                 <span>Requests</span>
                 <span className="flex items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+                  <span className="rounded-full bg-holBlue/15 px-2 py-0.5 text-[var(--text-primary)]">
                     {pendingRequests.length}
                   </span>
                   <span aria-hidden="true" className={`transition ${isRequestsOpen ? "rotate-0" : "-rotate-90"}`}>
@@ -733,11 +746,11 @@ export default function MessagesPage() {
               </button>
               {isRequestsOpen ? (
                 !resolvedInboundTopicId ? (
-                  <p className="mt-3 text-sm text-slate-500">
+                  <p className="mt-3 text-sm text-holNavy/60">
                     Publish a profile to mint inbound/outbound topics before accepting requests.
                   </p>
                 ) : pendingRequests.length === 0 ? (
-                  <p className="mt-3 text-sm text-slate-500">No pending invites right now.</p>
+                  <p className="mt-3 text-sm text-holNavy/60">No pending invites right now.</p>
                 ) : (
                   <div className="mt-3 max-h-[120px] space-y-2 overflow-y-auto pr-1">
                     {pendingRequests.map((item) => {
@@ -748,13 +761,13 @@ export default function MessagesPage() {
                       return (
                         <div
                           key={`sidebar-request-${item.event.sequenceNumber}`}
-                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                          className="rounded-2xl border border-holNavy/20 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-sm"
                         >
                           <p className="font-semibold">{label}</p>
                           {item.event.note ? (
-                            <p className="mt-1 text-xs text-slate-500">“{item.event.note}”</p>
+                            <p className="mt-1 text-xs text-holNavy/60">“{item.event.note}”</p>
                           ) : null}
-                        <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+                        <div className="mt-2 flex items-center gap-2 text-[11px] text-holNavy/60">
                           <span>{item.event.operator?.inboundTopicId ?? "—"}</span>
                           <span aria-hidden="true">•</span>
                           <time dateTime={item.event.consensusTimestamp}>
@@ -770,8 +783,8 @@ export default function MessagesPage() {
                             disabled={status.status === "processing" || status.status === "accepted"}
                             className={`mt-2 inline-flex w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold transition ${
                               status.status === "processing"
-                                ? "bg-slate-200 text-slate-500"
-                                : "bg-violet-600 text-white hover:bg-violet-500"
+                                ? "bg-holNavy/30 text-holNavy/60"
+                                : "bg-holBlue text-white hover:bg-holPurple"
                             }`}
                           >
                             {status.status === "processing"
@@ -792,11 +805,11 @@ export default function MessagesPage() {
               <button
                 type="button"
                 onClick={() => setIsFeedOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500"
+                className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-holNavy/60"
               >
                 <span>Inbound feed</span>
                 <span className="flex items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+                  <span className="rounded-full bg-holBlue/15 px-2 py-0.5 text-[var(--text-primary)]">
                     {sidebarDirectMessages.length}
                   </span>
                   <span aria-hidden="true" className={`transition ${isFeedOpen ? "rotate-0" : "-rotate-90"}`}>
@@ -806,18 +819,18 @@ export default function MessagesPage() {
               </button>
               {isFeedOpen ? (
                 !resolvedInboundTopicId ? (
-                  <p className="mt-3 text-sm text-slate-500">Provision an inbound topic to see message previews.</p>
+                  <p className="mt-3 text-sm text-holNavy/60">Provision an inbound topic to see message previews.</p>
                 ) : sidebarDirectMessages.length === 0 ? (
-                  <p className="mt-3 text-sm text-slate-500">No inbound messages yet.</p>
+                  <p className="mt-3 text-sm text-holNavy/60">No inbound messages yet.</p>
                 ) : (
-                  <ul className="mt-3 max-h-[120px] space-y-2 overflow-y-auto pr-1 text-sm text-slate-600">
-                    {sidebarDirectMessages.map((event) => (
+                  <ul className="mt-3 max-h-[120px] space-y-2 overflow-y-auto pr-1 text-sm text-[var(--text-primary)]">
+                    {sidebarDirectMessages.map((event, index) => (
                       <li
-                        key={event.kind === "direct-message" ? event.message.consensusTimestamp : event.consensusTimestamp}
-                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2"
+                        key={`${event.kind}-${index}`}
+                        className="rounded-2xl border border-holNavy/20 bg-[rgba(18,24,54,0.85)] px-3 py-2 shadow-sm"
                       >
-                        <div className="flex items-center justify-between text-[11px] text-slate-500">
-                          <span className="font-semibold text-slate-700">
+                        <div className="flex items-center justify-between text-[11px] text-holNavy/60">
+                          <span className="font-semibold text-[var(--text-primary)]">
                             {event.kind === "direct-message" ? event.message.from : "HCS-10"}
                           </span>
                           <time dateTime={event.kind === "direct-message" ? event.message.consensusTimestamp : event.consensusTimestamp}>
@@ -834,11 +847,11 @@ export default function MessagesPage() {
                           </time>
                         </div>
                         {event.kind === "direct-message" ? (
-                          <p className="mt-1 text-xs text-slate-500 break-words">
+                          <p className="mt-1 text-xs text-holNavy/60 break-words">
                             {event.message.content}
                           </p>
                         ) : (
-                          <p className="mt-1 text-xs text-slate-500">{event.kind}</p>
+                          <p className="mt-1 text-xs text-holNavy/60">{event.kind}</p>
                         )}
                       </li>
                     ))}
@@ -849,20 +862,20 @@ export default function MessagesPage() {
           </div>
         </aside>
 
-        <div className="flex min-h-[640px] flex-col rounded-3xl border border-slate-200 bg-white/95 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-6 py-4">
+        <div className="flex min-h-[640px] flex-col rounded-3xl border border-holNavy/20 bg-[rgba(18,24,54,0.9)] shadow-lg backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-holNavy/25 px-6 py-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-semibold uppercase tracking-wide text-holNavy/60">
                 {activeConnection ? "Channel" : "Inbox"}
               </p>
-              <h2 className="text-2xl font-semibold text-slate-900">
+              <h2 className="text-2xl font-semibold text-holNavy">
                 {activeConnection
                   ? activeConnection.contactDisplayName ??
                     activeConnection.contactAlias ??
                     activeConnection.contactAccountId
                   : identityLabel}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-holNavy/60">
                 {activeConnection ? activeConnection.connectionTopicId : resolvedInboundTopicId ?? "No topic"}
               </p>
             </div>
@@ -872,7 +885,7 @@ export default function MessagesPage() {
                   href={topicExplorerUrl(activeConnection.connectionTopicId)}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-700 hover:border-violet-200 hover:text-violet-600"
+                  className="rounded-full border border-holNavy/10 px-3 py-1 font-semibold text-holNavy/70 hover:border-holBlue/40 hover:text-holBlue"
                 >
                   View in explorer ↗
                 </a>
@@ -880,22 +893,22 @@ export default function MessagesPage() {
               <button
                 type="button"
                 onClick={handleStartNewConversation}
-                className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-700 hover:border-violet-200 hover:text-violet-600"
+                className="rounded-full border border-holNavy/10 px-3 py-1 font-semibold text-holNavy/70 hover:border-holBlue/40 hover:text-holBlue"
               >
                 Direct message
               </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden bg-slate-50">
+          <div className="flex-1 overflow-hidden bg-[rgba(12,18,47,0.9)]">
             {activeConnection ? (
               <div className="flex h-full flex-col">
                 <div className="flex-1 overflow-y-auto px-6 py-6">
                   <div className="flex min-h-full flex-col justify-end">
                     {conversationTimeline.length === 0 ? (
-                      <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-slate-500">
-                        <p className="text-lg font-semibold text-slate-800">No messages yet</p>
-                        <p className="max-w-sm text-sm">
+                      <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-holNavy/60">
+                        <p className="text-lg font-semibold text-[var(--text-primary)]">No messages yet</p>
+                        <p className="max-w-sm text-sm text-holNavy/60">
                           Start the conversation with{" "}
                           {activeConnection.contactDisplayName ??
                             activeConnection.contactAlias ??
@@ -911,8 +924,8 @@ export default function MessagesPage() {
                               <div
                                 className={`max-w-[75%] rounded-3xl px-4 py-2 text-sm shadow-sm ${
                                   item.fromSelf
-                                    ? "rounded-br-sm bg-violet-600 text-white"
-                                    : "rounded-bl-sm border border-slate-200 bg-white text-slate-900"
+                                    ? "rounded-br-sm bg-holBlue text-white"
+                                    : "rounded-bl-sm border border-holNavy/30 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)]"
                                 }`}
                               >
                                 <p>
@@ -922,7 +935,7 @@ export default function MessagesPage() {
                                 </p>
                               <span
                                 className={`mt-1 block text-[11px] ${
-                                  item.fromSelf ? "text-violet-100" : "text-slate-400"
+                                  item.fromSelf ? "text-white/80" : "text-holNavy/60"
                                 }`}
                               >
                                 {new Date(item.timestampMs).toLocaleTimeString([], {
@@ -940,22 +953,22 @@ export default function MessagesPage() {
                   </div>
                 </div>
                 {isThreadLoading ? (
-                  <div className="border-t border-slate-200 bg-white/80 px-4 py-2 text-center text-xs text-slate-500">
+                  <div className="border-t border-holNavy/25 bg-[rgba(18,24,54,0.9)] px-4 py-2 text-center text-xs text-holNavy/60">
                     Loading thread…
                   </div>
                 ) : null}
               </div>
             ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-slate-500">
-                <p className="text-lg font-semibold text-slate-800">Select a chat</p>
-                <p className="max-w-sm text-sm">
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-holNavy/60">
+                <p className="text-lg font-semibold text-[var(--text-primary)]">Select a chat</p>
+                <p className="max-w-sm text-sm text-holNavy/60">
                   Pick a connection from the sidebar or start a new direct message.
                 </p>
               </div>
             )}
           </div>
 
-          <div ref={composerRef} className="border-t border-slate-200 bg-white px-4 py-4">
+          <div ref={composerRef} className="border-t border-holNavy/25 bg-[rgba(18,24,54,0.9)] px-4 py-4">
             <ComposeForm
               signer={signer}
               senderAccountId={activeIdentity?.accountId ?? null}

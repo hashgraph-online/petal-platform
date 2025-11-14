@@ -878,7 +878,7 @@ AI Agent Profile with HCS‑10 and privacy compliance (optional):
     "type": 0,
     "capabilities": [0, 1],
     "model": "gpt-4",
-    "creator": "Hashgraph Online"
+    "creator": "HOL"
   }
 }
 ```

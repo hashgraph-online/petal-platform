@@ -1,20 +1,20 @@
 Building a Hedera DApp with Profiles, Petal Accounts, Messaging, and Flora Coordination
 
-This guide outlines a comprehensive step-by-step process to build a Next.js 15+ application on Hedera Hashgraph that implements profile management, multi-account (petal) identities, direct messaging, and group coordination (flora accounts). We leverage the Hedera Consensus Service (HCS) standards for Profiles (HCS-11), Petal accounts (HCS-15), Messaging (HCS-10), Discovery (HCS-2), Flora coordination (HCS-16), and plan for future state hashing (HCS-17). Using these open standards ensures our app is interoperable and “best-of-class.” Below, we integrate the Hashgraph Online Standards SDK (@hashgraphonline/standards-sdk) and follow UI/UX best practices (Tailwind CSS for a clean interface).
+This guide outlines a comprehensive step-by-step process to build a Next.js 15+ application on Hedera Hashgraph that implements profile management, multi-account (petal) identities, direct messaging, and group coordination (flora accounts). We leverage the Hedera Consensus Service (HCS) standards for Profiles (HCS-11), Petal accounts (HCS-15), Messaging (HCS-10), Discovery (HCS-2), Flora coordination (HCS-16), and plan for future state hashing (HCS-17). Using these open standards ensures our app is interoperable and “best-of-class.” Below, we integrate the HOL Standards SDK (@hashgraphonline/standards-sdk) and follow UI/UX best practices (Tailwind CSS for a clean interface).
 
 Hedera HCS Standards in this App: HCS-11 defines a profile metadata schema for consistent on-chain identity
-hashgraphonline.com
+hol.org
 , HCS-15 enables multiple “petal” accounts controlled by one key for isolated profiles
-hashgraphonline.com
+hol.org
 , HCS-10 provides a secure messaging protocol on Hedera’s consensus service
-hashgraphonline.com
+hol.org
 , HCS-2 offers a registry mechanism for discovering topics/agents
-hashgraphonline.com
+hol.org
 , and HCS-16 outlines multi-party “flora” accounts using three coordinated topics
-hashgraphonline.com
+hol.org
 . (HCS-17 specifies state-hash verification
-hashgraphonline.com
-, which we will stub for future use.) Using these together (as Hashgraph Online DAO suggests, “HCS-2 provides a registry..., HCS-10 defines how they communicate, HCS-11 standardizes their profile”
+hol.org
+, which we will stub for future use.) Using these together (as HOL DAO suggests, “HCS-2 provides a registry..., HCS-10 defines how they communicate, HCS-11 standardizes their profile”
 genfinity.io
 ) will allow users to seamlessly connect, identify each other, message, and form groups on Hedera. Now, let’s dive into the build steps.
 
@@ -49,7 +49,7 @@ Step 2: Install Hedera SDKs and Configure Environment
 
 Install Hedera libraries – Add the required Hedera packages to your project:
 
-Hedera JS SDK (if needed by the standards SDK) and the Hashgraph Online Standards SDK:
+Hedera JS SDK (if needed by the standards SDK) and the HOL Standards SDK:
 
 npm install @hashgraph/sdk @hashgraphonline/standards-sdk
 
@@ -124,7 +124,7 @@ Step 4: Create and Update the User Profile (HCS-11 Standard)
 User Story: “I want to easily manage my profile for my base account.”
 
 With the wallet connected, the user should create an HCS-11 profile for their account. The HCS-11 Profile Metadata Standard defines a common schema for identity on Hedera (name, avatar, etc.)
-hashgraphonline.com
+hol.org
 . It’s used to represent both human users and autonomous agents in a uniform way. Notably, an HCS-11 profile includes the agent’s name/alias and also the “inbound” and “outbound” topic IDs for messaging
 genfinity.io
 . We will leverage the Standards SDK to simplify profile creation.
@@ -140,7 +140,7 @@ genfinity.io
 Create a personal inbound topic – Use the Hedera Consensus Service to create a new topic for this user’s incoming messages:
 
 Call the SDK or Hedera JS to build a TopicCreateTransaction. We can mark the topic with a special memo indicating its purpose. For example, set the topic memo to a code or text like "HCS-10 Inbox for acct 0.0.X" or a numeric enum if the standard defines one. (Ensuring a memo can help indexers discover it easily
-hashgraphonline.com
+hol.org
 , though for a personal inbox it’s mainly for clarity.)
 
 Have the user sign this TopicCreate transaction via their wallet (since the user will be the topic admin by default). The Standards SDK might have a utility to create a personal inbox topic as part of HCS-10 or HCS-11 flows – check if something like HCS10Client.createInbox() exists. If not, directly use the Hedera SDK:
@@ -171,7 +171,7 @@ await updateTx.freezeWithSigner(walletSigner).executeWithSigner(walletSigner);
 
 Ensure to sign with the wallet. After execution, the account’s memo is updated on Hedera (you can verify via mirror API).
 
-Publish profile data: Use the HCS-2 registry (next step) to actually store the full profile JSON on-chain. This could be done by sending a ConsensusMessage to a known Profile Registry Topic designated by Hashgraph Online’s standards. The Standards SDK’s HCS-11 module or HCS-2 module likely has a method for registration. For example, HCS11Client.registerProfile(profileObject) or a more generic RegistryClient.register(topicId, data). We will detail this in Step 5 (Discovery).
+Publish profile data: Use the HCS-2 registry (next step) to actually store the full profile JSON on-chain. This could be done by sending a ConsensusMessage to a known Profile Registry Topic designated by HOL’s standards. The Standards SDK’s HCS-11 module or HCS-2 module likely has a method for registration. For example, HCS11Client.registerProfile(profileObject) or a more generic RegistryClient.register(topicId, data). We will detail this in Step 5 (Discovery).
 
 Profile UI update – Once the profile creation transaction is complete:
 
@@ -188,21 +188,21 @@ Use the same functions as creation, but treat it as an update (the HCS-11 standa
 Ensure compliance with HCS-11 – By using the standardized schema and SDK, you guarantee compatibility. The profile metadata is standardized so other apps or agents can read it uniformly
 genfinity.io
 . Our use of the standards SDK means we handle any serialization or field naming according to spec. (For example, if the standard requires a certain JSON structure or a specific memo format for linking profiles to accounts, the SDK will enforce that.) This results in cross-app identity “enabling consistent identity representation across applications”
-hashgraphonline.com
+hol.org
 .
 
 Step 5: Register Profile in HCS-2 Registry for Discovery
 
 To allow others to discover and message the user, we use HCS-2: Advanced Topic Registries. HCS-2 provides a standardized way to organize data in topics for discovery
-hashgraphonline.com
+hol.org
 . In our case, we’ll use a Profile Registry (a specialized consensus topic or set of topics) to publish the user’s profile entry. This acts like a decentralized “phone book” for Hedera identities.
 
 Obtain registry topic – Determine which topic to use for profile listings:
 
-Hashgraph Online likely runs a registry service (the “Registry Broker”) and a well-known topic for agent/user profiles. There might be a global topic ID for all HCS-11 profiles, or one can be created for your app specifically. Check the documentation or community info for a registry. For instance, the Hashgraph Online Agent Registry could be accessible via registry.hashgraphonline.com and may have an API. For development, you could also create your own registry topic.
+HOL likely runs a registry service (the “Registry Broker”) and a well-known topic for agent/user profiles. There might be a global topic ID for all HCS-11 profiles, or one can be created for your app specifically. Check the documentation or community info for a registry. For instance, the HOL Agent Registry could be accessible via registry.hol.org and may have an API. For development, you could also create your own registry topic.
 
 If using the standards SDK, see if it offers a RegistryClient or similar. In the SDK docs, a Registry Broker Client is mentioned for interacting with discovery services
-hashgraphonline.com
+hol.org
 . This might abstract away the details of where the data is stored (possibly using HIP-563 JSON in topic etc.). For simplicity, assume a known ProfileRegistryTopicId is available (you can store it in config).
 
 Publish profile to registry – Take the HCS-11 profile JSON constructed in Step 4 and publish it as a message to the registry topic:
@@ -221,7 +221,7 @@ await msgTx.freezeWithSigner(walletSigner).executeWithSigner(walletSigner);
 (In practice, use the standards SDK if available, which might do JSON schema validation and topic management automatically.)
 
 Verify registration – After publishing, you can query the mirror node for the latest messages on the registry topic to ensure it’s recorded. The profile entry will likely contain your account ID as a reference. This decentralized registry is how others will look you up by alias or ID. According to the standard, “topic registries within the HCS framework enable organized data discovery”
-hashgraphonline.com
+hol.org
  – meaning we can later search this topic for a given alias to get the corresponding profile (and inbound topic ID for messaging).
 
 Profile discovery UI – Although not visible to the user explicitly, this step enables a future feature: a “search user” function. We will implement that later (Step 8) to allow sending messages to others by alias. For now, just ensure the profile is registered. (Optionally, log the transaction ID or timestamp of the registry entry in localStorage so the app knows the profile is live.)
@@ -233,7 +233,7 @@ Step 6: Create Petal Accounts (HCS-15 Standard) for Multiple Identities
 User Story: “I want to create petal accounts and see all the petal accounts I’ve made.”
 
 With the base profile set, we implement HCS-15: Petal Accounts. This standard allows a user to spawn multiple account instances (child accounts) that use the same private key as the base account
-hashgraphonline.com
+hol.org
 . Petal accounts let a user compartmentalize assets or profiles (like having sub-identities) without managing new keys for each. We will enable users to create and manage petal accounts directly from the app.
 
 UI for petal creation – On the Profile page (or a dedicated “Identities” page), add a section “My Petal Accounts” with a list and a “Create New Petal” button. Explain to the user that petal accounts are additional accounts controlled by their wallet’s key (so they don’t need to manage extra keys). Each petal can have its own profile and be used independently in the app.
@@ -252,9 +252,9 @@ const result = await petalClient.createPetalAccount({
 
 
 This should create a new account on Hedera with the same public/private key as the base (the basePrivateKey provides the key; in browser context, the wallet signer may be used instead of raw key). The result typically includes the new accountId (and a receipt)
-hashgraphonline.com
+hol.org
 . Under the hood, this issues an AccountCreateTransaction where the publicKey is the same as the base account’s public key, thus the same key controls both
-hashgraphonline.com
+hol.org
 . The initial balance can be a small amount transferred from the base (say 5 HBAR, as in example) to activate the account.
 
 If not using the SDK for some reason, you can manually do:
@@ -275,8 +275,8 @@ Record and confirm – Once the transaction succeeds:
 Retrieve the new Petal account ID from the result/receipt.
 
 Use the HCS15Client.verifyPetalAccount(newId, baseAccountId) method to confirm on the mirror that the new account’s public key matches the base’s
-hashgraphonline.com
-hashgraphonline.com
+hol.org
+hol.org
 . This is an extra check (the SDK likely does it or you can simply trust the creation if no error).
 
 Add the new Petal account to the app’s state:
@@ -308,7 +308,7 @@ Buttons: “Switch to this” (sets active identity), “Profile” (to go to ma
 Using Tailwind, you can style this as a simple list group or cards. For example, a <ul> with <li> items having a title (account ID) and actions in a smaller button row.
 
 Best practices – Petal accounts give users flexibility with the same key. Remind them through UI text or docs that all petals share the same private key, so they are not meant for security separation but rather organizational separation (multiple profiles or use-cases)
-hashgraphonline.com
+hol.org
 . Each petal can hold assets separately and have its own profile/identity, but if the base key is compromised, all are. This is analogous to having multiple sub-accounts under one login.
 
 Step 7: Enable Profile Management for Petal Accounts
@@ -336,7 +336,7 @@ UI indication – In the petal list, once a petal has a profile, show a badge or
 Profile switching – Ensure that when the active identity is switched (base or a specific petal), the app’s context uses the corresponding profile for display. For instance, at the top of the Messages page, you might indicate “Messaging as [Alias] (Account 0.0.X)”. This clarity helps users remember which persona they are using.
 
 Consistency with standards – We are essentially treating each petal just like a normal user/agent on the network with its own HCS-11 profile and HCS-10 inbox topic. This adheres to the idea of petal accounts being “isolated profiles and asset holdings” under one key
-hashgraphonline.com
+hol.org
 . By using the standards SDK and same process, we maintain compatibility (the profile schema and registry entries for petals are no different from base accounts). The only unique aspect is HCS-15’s relationship which we manage on our side (linking base and petals in UI, using the same key).
 
 Step 8: Implement Direct Messaging Between Profiles (HCS-10 OpenConvAI Standard)
@@ -344,7 +344,7 @@ Step 8: Implement Direct Messaging Between Profiles (HCS-10 OpenConvAI Standard)
 User Story: “I want to see my inbound messages and send outbound messages.”
 
 Now that users (base or petal) have profiles and have registered their messaging topics, we can enable peer-to-peer messaging using HCS-10, which defines a protocol for secure, verifiable communication via HCS
-hashgraphonline.com
+hol.org
 . In the context of our app, this means one user can send a message to another’s inbound topic, and the recipient will fetch it from that topic. We will implement a simple messaging UI and logic for sending/receiving messages.
 
 Messaging data model – Decide how to represent messages:
@@ -434,7 +434,7 @@ Reply from B to A. Check A sees it.
 Also test what happens if a message arrives when the user is not currently on the Messages page or not active – maybe consider a simple notification (like increment an “unread” count in the nav or use a toast).
 
 By implementing messaging over HCS like this, we adhere to HCS-10 principles: secure, verifiable interactions over Hedera’s consensus service
-hashgraphonline.com
+hol.org
 . Every message has a consensus timestamp and is immutable, viewable on Hedera Explorer for transparency. Our simple protocol (JSON with from/content) can be extended or encrypted later, but even now it achieves decentralized, trust-minimized chat.
 
 Step 9: Implement Profile Discovery (Using HCS-2 Registry Lookups)
@@ -443,9 +443,9 @@ User Story (implied): The app should allow users to find other profiles to messa
 
 Search UI – In the Messages section (or as a global search bar), add a “Find User by Alias” field. This allows a user to enter someone’s alias or username and search for their profile.
 
-When submitted, perform a lookup in the HCS-2 profile registry. If we had an index, we would query it. Without a dedicated index server, one approach is to fetch messages from the registry topic and filter by alias (which is not scalable if many profiles exist). Instead, we can integrate with a Registry Service API if provided by Hashgraph Online:
+When submitted, perform a lookup in the HCS-2 profile registry. If we had an index, we would query it. Without a dedicated index server, one approach is to fetch messages from the registry topic and filter by alias (which is not scalable if many profiles exist). Instead, we can integrate with a Registry Service API if provided by HOL:
 
-The “Registry Broker” likely offers an API endpoint to search by alias and return matching profile records (similar to how a centralized phonebook lookup would work, but backed by the on-chain data). If such an API is available (perhaps registry.hashgraphonline.com/api/search?alias=<name>), use it. If not, for our prototype, we can maintain a small local directory.
+The “Registry Broker” likely offers an API endpoint to search by alias and return matching profile records (similar to how a centralized phonebook lookup would work, but backed by the on-chain data). If such an API is available (perhaps registry.hol.org/api/search?alias=<name>), use it. If not, for our prototype, we can maintain a small local directory.
 
 For demonstration, assume a simple solution: the app keeps a cache of known profiles (e.g., any profile you have interacted with, you store their alias->topic mapping in localStorage). This is limited, but for a small user pool it works. You could pre-load some known entries (if this were a public app, ideally you’d use the registry service).
 
@@ -465,7 +465,7 @@ Then parse profileMsg.message for the profile.
 A more practical approach is using the Standards SDK Registry Client. If provided, it could have a method like registryClient.getProfileByAlias(alias). Internally it might query an index or the mirror. Because the prompt suggests using the SDK as much as possible, look for such a function or perhaps the registry might even be wrapped in a smart contract (but likely not, since it’s HCS).
 
 In summary, for our application, we emphasize that the profile search feature is powered by the on-chain registry (HCS-2), which “enables organized data discovery”
-hashgraphonline.com
+hol.org
 . In production, we'd utilize an indexing service for quick lookup.
 
 Using found profile – Once we retrieve the target’s profile data:
@@ -493,7 +493,7 @@ Step 10: Initiate Flora Account Creation (HCS-16 Multi-Party Coordination)
 User Story: “I want to request to create a flora account together with others.”
 
 Now we implement Flora accounts (HCS-16) – multi-party accounts that enable collaborative groups or shared entities. A Flora is essentially a formation of multiple petal accounts (potentially from different users) that coordinate via three consensus topics
-hashgraphonline.com
+hol.org
 . Think of it as a group chat with governance: there’s a communication channel, a channel for transaction proposals, and a channel for state updates (like group state or multi-sig status). We’ll allow a user to invite others to form a Flora and coordinate the creation handshake.
 
 Flora creation UI – On a “Floras” page, include a “New Flora” button or form. When clicked:
@@ -509,7 +509,7 @@ The user themselves is implicitly a member (likely using one of their identities
 Once the user has input the other members (e.g., a multi-select input of aliases), proceed with the creation process.
 
 Create Flora topics – Following HCS-16, each Flora requires three dedicated HCS topics
-hashgraphonline.com
+hol.org
 :
 
 Communication Topic (CTopic) – for general coordination messages (e.g., group chat, invites, join/leave notices).
@@ -527,7 +527,7 @@ const stateTopicTx = new TopicCreateTransaction().setTopicMemo(memoBase+"-State"
 
 
 It’s important to set recognizable memos or use the numeric enums defined by HCS-16 spec for each topic type
-hashgraphonline.com
+hol.org
 . For example, if the standard says Communication Topic memo must contain a certain code, follow that. The standards SDK might abstract this (e.g., an HCS16Client.createFloraTopics() that returns all three IDs with correct memos).
 
 Execute these transactions with the user’s wallet (the initiator becomes admin of these topics by default, but we could later set access control if needed).
@@ -537,7 +537,7 @@ Collect the three new topic IDs. These define the Flora’s channels.
 flora_create_request message – Now, notify the invited members:
 
 Compose a Flora creation request message as per HCS-16 core operations: it starts with a flora_create_request event
-hashgraphonline.com
+hol.org
 . This message should include:
 
 The list of participant account IDs (or their profile identifiers) who are invited.
@@ -575,7 +575,7 @@ The invite message includes the necessary info (topics, etc.). The UI should dis
 If the user clicks Accept:
 
 We need to send a flora_create_accepted message (per HCS-16 flow)
-hashgraphonline.com
+hol.org
 . Likely, this should be posted on the Flora’s Communication Topic (CTopic) so that all members (especially the initiator) see it. The invitee now knows the comm topic ID from the invite data.
 
 So, have the app use the invite’s commTopicId to submit a message: e.g., {"type": "flora_accept", "from": myAccount}.
@@ -593,7 +593,7 @@ Flora creation finalization – The initiator’s app should watch the comm topi
 As soon as it sees all invited members have sent flora_accept on the comm topic (or a majority, depending on policy – but likely it needs unanimity to proceed):
 
 It then sends a flora_created message on the comm topic
-hashgraphonline.com
+hol.org
  indicating the Flora is active. This could include maybe an initial state or just a confirmation.
 
 At this point, the Flora is officially formed. All three topics are now “in use”:
@@ -607,7 +607,7 @@ The state topic can record any shared state (like a running tally, or a hash of 
 The Standards SDK likely streamlines this process. For example, HCS16Client.createFlora(members) might under the hood create topics and manage the handshake messages. If such high-level function exists, it could abstract all of the above. Since we want clarity, we detailed the manual steps, but using the SDK’s flows is advisable to avoid mistakes (ensuring all message types and memos match spec).
 
 Multi-sig or shared account – Note that so far we created topics for coordination, but we have not created a shared crypto account controlled by the group. HCS-16 by itself might not create an on-chain account; it just coordinates existing accounts (the members’ petals). Shared escrow or multi-signature actions would be done via scheduled transactions that the group coordinates on the tx topic. Implementing actual fund escrow is advanced (would involve creating a Hedera account with a threshold key of all members – which could be done if needed). However, the user specs say “flora accounts together” and “shared escrow” is mentioned in HCS-16 standard
-hashgraphonline.com
+hol.org
 . To keep scope manageable:
 
 We assume flora = group of individuals coordinating; we won’t create a new Hedera account for the flora itself in this iteration.
@@ -617,8 +617,8 @@ We assume flora = group of individuals coordinating; we won’t create a new Hed
 We do leave a placeholder: e.g., in the Flora’s info we can note “(A shared account can be added later for escrow if needed)” for future development.
 
 By completing this step, we have the mechanism for users to form groups (“floras”) in a decentralized way. The structured messages (flora_create_request → accepted → created) follow the standard, making it auditable and predictable. As noted, each Flora is built from HCS-15 Petals and uses three topics with explicit operations for membership and state
-hashgraphonline.com
-hashgraphonline.com
+hol.org
+hol.org
 . This structure keeps our group implementation modular and transparent.
 
 Step 11: Manage and View Flora Accounts (Flora UI and Functionality)
@@ -662,7 +662,7 @@ Show the message history (who said what at what time).
 Provide an input box to send a message to the comm topic. For example, if users want to discuss within the group, they type here and submit, and your app does a TopicMessageSubmit on the comm topic with their content (mark the sender).
 
 Also handle any special flora operations via this channel: e.g., if a user wants to invite a new member later (that could be a flora_join_request flow as hinted by HCS-16
-hashgraphonline.com
+hol.org
 ). This is advanced; for now maybe skip dynamic membership changes beyond initial create.
 
 Transaction (Tx) Topic – This topic is for proposals that might require agreement. For simplicity:
@@ -676,13 +676,13 @@ Others could respond by posting votes or comments on the comm topic, or we could
 The UI can label the Tx topic section as “Proposals” and list all proposals and their statuses (status we determine off-chain for now, e.g., “Pending” or “Approved” if all responded).
 
 State Topic – This is meant to hold compact state updates for the flora, often accompanied by a state hash (HCS-17)
-hashgraphonline.com
+hol.org
 . Initially, we might not have a concrete state (especially if we didn’t create a joint account). But we can use it to log any important agreed outcomes or snapshots:
 
 For example, if a proposal passes, a member can post a state update: {"state":"Proposal1 approved and executed"}. Or if the flora had a treasury, they could post balance updates.
 
 We also use this section to stub the integration of HCS-17 state hashes. HCS-17 defines how to compute a cryptographic hash of the state of an account or group for audit
-hashgraphonline.com
+hol.org
 . We will not implement hashing now, but we design for it:
 
 Decide on a structure: e.g., if the Flora has a shared document or balance, one could compute a hash of that and post it in the state topic for transparency. For now, we just leave a placeholder in code where such a hash would be inserted.
@@ -708,7 +708,7 @@ Flora actions – Additional group management actions can be considered (not exp
 Leave Flora: A member might leave a flora. This would entail sending a message on comm topic (and possibly removing themselves from further coordination). We can skip implementing leave for now, assuming floras are relatively static once created.
 
 Add Member after creation: HCS-16 suggests join requests and votes
-hashgraphonline.com
+hol.org
 . We won’t fully implement, but note that if needed, a member could propose adding someone new (maybe as a Tx proposal, then if agreed, send them an invite).
 
 These can be future enhancements; our current focus is initial creation and basic messaging within the flora.
@@ -738,7 +738,7 @@ Verify that all these messages are retrievable via mirror APIs and consistent.
 Check that if one user is offline (not connected), when they come back and load the flora page, the history of messages populates (since we fetch from chain).
 
 This confirms our flora implementation is robust and uses HCS-16’s structured approach for multi-party coordination (separating concerns into distinct topics, which keeps things auditable and easier to index
-hashgraphonline.com
+hol.org
 ).
 
 Step 12: Data Management – Local Storage and Avoiding Unneeded Backend
@@ -834,7 +834,7 @@ Try updating the profile and see that changes propagate.
 Petal accounts: After creating a petal, ensure:
 
 The new account shows up on a Hedera explorer with the correct public key (matching base). For instance, HashScan will show the key; compare it to base account’s key (they should match, confirming HCS-15 multi-account usage
-hashgraphonline.com
+hol.org
 ).
 
 Test signing with petal: try sending a small HBAR transfer from petal to another account using the app (just to test the wallet can act as petal). If wallet doesn’t natively switch, you may have to always use base to pay fees; make sure that’s handled gracefully.
@@ -919,7 +919,7 @@ The user’s private key never leaves their wallet – we did everything via wal
 
 Ensure we are not exposing any secrets in the front-end (there shouldn’t be any except perhaps a WalletConnect Project ID which is okay).
 
-The app should only interact with trusted domains (Hedera public APIs, maybe Hashgraph Online’s if using their services).
+The app should only interact with trusted domains (Hedera public APIs, maybe HOL’s if using their services).
 
 If using any external resources (fonts, icons), host or use reputable CDNs.
 
@@ -933,41 +933,41 @@ This isn’t a code step, but a production readiness step.
 
 By following all these steps, we have built a production-ready Hedera dApp that is modular, standards-compliant, and user-friendly. The app allows users to manage their identity on Hedera (with HCS-11 profiles), spawn sub-identities (HCS-15 petal accounts), discover other users (HCS-2 registry), communicate directly (HCS-10 messaging), and form collaborative groups (HCS-16 flora, with consideration for HCS-17 future state verification). All of this is achieved without a centralized server, showcasing the power of Hedera’s consensus service and a well-designed front-end.
 
-Throughout development we used the Hashgraph Online Standards SDK to adhere to best practices – this ensures our transactions and data formats conform to the expected shapes (for example, using the same field names and memos as the published standards). Adhering to these standards means our app can interoperate with others in the ecosystem and take advantage of any future tooling (for instance, an explorer could natively recognize our flora’s topics by their memos or a wallet could manage HCS-11 profiles directly).
+Throughout development we used the HOL Standards SDK to adhere to best practices – this ensures our transactions and data formats conform to the expected shapes (for example, using the same field names and memos as the published standards). Adhering to these standards means our app can interoperate with others in the ecosystem and take advantage of any future tooling (for instance, an explorer could natively recognize our flora’s topics by their memos or a wallet could manage HCS-11 profiles directly).
 
 Conclusion: Following this guide, you should end up with a live application on Vercel that provides a smooth UX for both technical and non-technical users to engage with Hedera’s capabilities – all through a simple web interface backed by robust on-chain standards. Happy building! 🚀
 
 Sources:
 
-Hedera Consensus Service Standards (Hashgraph Online DAO):
+Hedera Consensus Service Standards (HOL DAO):
 
 Profile Metadata Standard (HCS-11)
-hashgraphonline.com
+hol.org
 genfinity.io
 
 Petal Accounts (HCS-15)
-hashgraphonline.com
+hol.org
 
 OpenConvAI Communication (HCS-10)
-hashgraphonline.com
+hol.org
 
 Topic Registries for discovery (HCS-2)
-hashgraphonline.com
+hol.org
 
 Flora Coordination (HCS-16)
-hashgraphonline.com
-hashgraphonline.com
+hol.org
+hol.org
 
 State Hashing (HCS-17)
-hashgraphonline.com
+hol.org
 
-Hashgraph Online Standards SDK documentation (HCS-15 example usage)
-hashgraphonline.com
+HOL Standards SDK documentation (HCS-15 example usage)
+hol.org
 
 “Building the Decentralized Agentic Internet” – Genfinity (context on HCS-10, HCS-11, HCS-2 interplay)
 genfinity.io
 genfinity.io
 
 HCS-16 Flora Overview (three-topic structure and message flows)
-hashgraphonline.com
-hashgraphonline.com
+hol.org
+hol.org

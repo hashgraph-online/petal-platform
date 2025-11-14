@@ -9,8 +9,15 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular"],
+        sans: ["var(--font-roboto)", "Roboto", "system-ui", "sans-serif"],
+        mono: ["var(--font-roboto-mono)", "Roboto Mono", "ui-monospace", "SFMono-Regular"],
+      },
+      colors: {
+        // Lightened palette for better contrast on dark backgrounds
+        holNavy: "#dfe5ff",
+        holBlue: "#6aa9ff",
+        holPurple: "#c3a4ff",
+        holGreen: "#76f5aa",
       },
     },
   },

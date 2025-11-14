@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import type {
   DAppConnector,
   HederaJsonRpcMethod,
   HederaSessionEvent,
@@ -21,12 +21,15 @@ function resolveMetadataUrl(): string {
 }
 
 function buildMetadata() {
+  const url = resolveMetadataUrl();
+  const favicon = `${url.replace(/\/$/, "")}/favicon.ico`;
+
   return {
     name: "Petal Platform",
     description:
       "Wallet connection for Hedera profiles, petals, messaging, and floras.",
-    url: resolveMetadataUrl(),
-    icons: ["https://hashgraphonline.com/favicon.ico"],
+    url,
+    icons: [favicon],
   };
 }
 
@@ -42,11 +45,6 @@ function resolveLedgerId(): LedgerId {
   }
 }
 
-const supportedEvents = [
-  HederaSessionEvent.ChainChanged,
-  HederaSessionEvent.AccountsChanged,
-];
-
 export async function getWalletConnector(): Promise<DAppConnector> {
   if (connector) {
     return connector;
@@ -55,6 +53,15 @@ export async function getWalletConnector(): Promise<DAppConnector> {
   if (isDebug) {
     console.debug("WalletConnect project ID", walletConnectProjectId);
   }
+
+  const { DAppConnector, HederaJsonRpcMethod, HederaSessionEvent } = await import(
+    "@hashgraph/hedera-wallet-connect"
+  );
+
+  const supportedEvents = [
+    HederaSessionEvent.ChainChanged,
+    HederaSessionEvent.AccountsChanged,
+  ];
 
   const instance = new DAppConnector(
     buildMetadata(),

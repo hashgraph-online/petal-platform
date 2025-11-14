@@ -99,47 +99,47 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-slate-700">Petal alias</span>
+          <span className="text-sm font-medium text-holNavy">Petal alias</span>
           <input
             type="text"
             value={alias}
             onChange={(event) => setAlias(event.target.value)}
             placeholder="project-alice"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
           />
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-holNavy/60">
             Lowercase alias stored in the petal memo and profile registry.
           </span>
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-slate-700">Initial balance (ℏ)</span>
+          <span className="text-sm font-medium text-holNavy">Initial balance (ℏ)</span>
           <input
             type="number"
             min="0"
             step="0.1"
             value={initialBalance}
             onChange={(event) => setInitialBalance(event.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
           />
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-holNavy/60">
             Seed amount transferred from the base account during creation.
           </span>
         </label>
       </div>
       <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-slate-700">Base account public key</span>
+        <span className="text-sm font-medium text-holNavy">Base account public key</span>
         <input
           type="text"
           value={derivedPublicKey}
           readOnly
-          className="w-full rounded-md border border-slate-300 bg-slate-100 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+          className="w-full rounded-md border border-holNavy/20 bg-holBlue/10 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
         />
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-holNavy/60">
           Automatically sourced from the connected base account for HCS-15 compliance.
         </span>
       </label>
       <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-slate-700">
+        <span className="text-sm font-medium text-holNavy">
           Max automatic token associations
         </span>
         <input
@@ -148,15 +148,15 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
           max="50"
           value={maxAssociations}
           onChange={(event) => setMaxAssociations(event.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+          className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
         />
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-holNavy/60">
           Optional limit for automatic token associations on the new account.
         </span>
       </label>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {baseAccountId ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-holNavy/60">
           Base account: <span className="font-medium">{baseAccountId}</span>
         </p>
       ) : (
@@ -167,7 +167,7 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
       <button
         type="submit"
         disabled={status === "submitting" || !derivedPublicKey}
-        className="inline-flex items-center justify-center rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {status === "submitting" ? (
           <span className="flex items-center gap-2">

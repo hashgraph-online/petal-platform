@@ -41,10 +41,10 @@ export function ConnectWalletButton() {
       type="button"
       onClick={handleClick}
       disabled={isConnecting}
-      className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+      className={`rounded-full border px-4 py-2 text-sm font-semibold shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
         accountId
-          ? "bg-emerald-600 text-white hover:bg-emerald-500 focus-visible:outline-emerald-600"
-          : "bg-violet-600 text-white hover:bg-violet-500 focus-visible:outline-violet-600"
+          ? "border-holGreen/50 bg-holGreen text-white hover:bg-holGreen/90 focus-visible:outline-holGreen"
+          : "border-holBlue/50 bg-holBlue text-white hover:bg-holPurple focus-visible:outline-holBlue"
       } ${isConnecting ? "opacity-60" : ""}`}
       title={
         accountId

@@ -29,8 +29,8 @@ export function FloraDirectory({ floras, selectedId, onSelect }: FloraDirectoryP
           key={flora.id}
           className={`rounded-xl border bg-white p-4 shadow-sm transition ${
             selectedId === flora.id
-              ? "border-violet-300 ring-2 ring-violet-200"
-              : "border-slate-200"
+              ? "border-holBlue/50 ring-2 ring-holBlue/30"
+              : "border-holNavy/10"
           }`}
           role="button"
           tabIndex={0}
@@ -43,39 +43,39 @@ export function FloraDirectory({ floras, selectedId, onSelect }: FloraDirectoryP
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-lg font-semibold text-slate-900">{flora.name}</p>
-              <p className="text-xs uppercase tracking-wide text-slate-500">
+              <p className="text-lg font-semibold text-holNavy">{flora.name}</p>
+              <p className="text-xs uppercase tracking-wide text-holNavy/60">
                 {flora.status === "pending" ? "Pending" : "Active"}
               </p>
               <dl className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
                 <div>
-                  <dt className="font-medium text-slate-500">Communication topic</dt>
+                  <dt className="font-medium text-holNavy/60">Communication topic</dt>
                   <dd>
                     <a
                       href={topicExplorerUrl(flora.topics.communication)}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-violet-600 hover:text-violet-500"
+                      className="text-holBlue hover:text-holPurple"
                     >
                       {formatTopicId(flora.topics.communication)}
                     </a>
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-slate-500">Transaction topic</dt>
+                  <dt className="font-medium text-holNavy/60">Transaction topic</dt>
                   <dd>{formatTopicId(flora.topics.transaction)}</dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-slate-500">State topic</dt>
+                  <dt className="font-medium text-holNavy/60">State topic</dt>
                   <dd>{formatTopicId(flora.topics.state)}</dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-slate-500">Members</dt>
+                  <dt className="font-medium text-holNavy/60">Members</dt>
                   <dd className="flex flex-wrap gap-2">
                     {flora.members.map((member) => (
                       <span
                         key={member.accountId}
-                        className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
+                        className="rounded-full bg-holBlue/10 px-2 py-0.5 text-[11px] font-medium text-holNavy"
                         title={member.accountId}
                       >
                         {member.alias || member.accountId}
@@ -85,7 +85,7 @@ export function FloraDirectory({ floras, selectedId, onSelect }: FloraDirectoryP
                 </div>
               </dl>
             </div>
-            <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            <div className="rounded-full bg-holBlue/10 px-3 py-1 text-xs font-semibold text-holNavy/80">
               Initiated by {flora.initiatorAccountId}
             </div>
           </div>
