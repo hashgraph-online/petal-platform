@@ -831,15 +831,11 @@ export default function MessagesPage() {
                       >
                         <div className="flex items-center justify-between text-[11px] text-holNavy/60">
                           <span className="font-semibold text-[var(--text-primary)]">
-                            {event.kind === "direct-message" ? event.message.from : "HCS-10"}
+                            {event.message.from}
                           </span>
-                          <time dateTime={event.kind === "direct-message" ? event.message.consensusTimestamp : event.consensusTimestamp}>
+                          <time dateTime={event.message.consensusTimestamp}>
                             {(() => {
-                              const tsMs = consensusTimestampToMs(
-                                event.kind === "direct-message"
-                                  ? event.message.consensusTimestamp
-                                  : event.consensusTimestamp,
-                              );
+                              const tsMs = consensusTimestampToMs(event.message.consensusTimestamp);
                               return tsMs
                                 ? new Date(tsMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                                 : "—";
