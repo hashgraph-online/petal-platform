@@ -1,0 +1,74 @@
+"use client";
+
+import {
+  DAppConnector,
+  HederaJsonRpcMethod,
+  HederaSessionEvent,
+} from "@hashgraph/hedera-wallet-connect";
+import { LedgerId } from "@hashgraph/sdk";
+import { appUrl, env, isDebug, walletConnectProjectId } from "@/config/env";
+
+let connector: DAppConnector | null = null;
+
+function resolveMetadataUrl(): string {
+  if (appUrl) {
+    return appUrl;
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "https://petal-platform.local";
+}
+
+function buildMetadata() {
+  return {
+    name: "Petal Platform",
+    description:
+      "Wallet connection for Hedera profiles, petals, messaging, and floras.",
+    url: resolveMetadataUrl(),
+    icons: ["https://hashgraphonline.com/favicon.ico"],
+  };
+}
+
+function resolveLedgerId(): LedgerId {
+  switch (env.HEDERA_NETWORK) {
+    case "mainnet":
+      return LedgerId.MAINNET;
+    case "previewnet":
+      return LedgerId.PREVIEWNET;
+    case "testnet":
+    default:
+      return LedgerId.TESTNET;
+  }
+}
+
+const supportedEvents = [
+  HederaSessionEvent.ChainChanged,
+  HederaSessionEvent.AccountsChanged,
+];
+
+export async function getWalletConnector(): Promise<DAppConnector> {
+  if (connector) {
+    return connector;
+  }
+
+  if (isDebug) {
+    console.debug("WalletConnect project ID", walletConnectProjectId);
+  }
+
+  const instance = new DAppConnector(
+    buildMetadata(),
+    resolveLedgerId(),
+    walletConnectProjectId,
+    Object.values(HederaJsonRpcMethod),
+    supportedEvents,
+  );
+
+  await instance.init({ logger: isDebug ? "info" : "error" });
+  connector = instance;
+  return instance;
+}
+
+export function resetWalletConnector(): void {
+  connector = null;
+}

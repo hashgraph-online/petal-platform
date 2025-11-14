@@ -1,0 +1,47 @@
+diff --git a/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/adapter.d.ts b/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/adapter.d.ts
+index 9c3147a..2a1233b 100644
+--- a/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/adapter.d.ts
++++ b/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/adapter.d.ts
+@@ -1,6 +1,6 @@
+ import { CaipNetwork } from '@reown/appkit';
+ import { type ChainNamespace } from '@reown/appkit-common';
+-import { AdapterBlueprint } from '@reown/appkit/adapters';
++import { AdapterBlueprint } from '@reown/appkit-controllers';
+ type UniversalProvider = Parameters<AdapterBlueprint['setUniversalProvider']>[0];
+ type AdapterSendTransactionParams = AdapterBlueprint.SendTransactionParams & {
+     address: string;
+diff --git a/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/adapter.js b/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/adapter.js
+index b6ab276..607be00 100644
+--- a/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/adapter.js
++++ b/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/adapter.js
+@@ -1,6 +1,6 @@
+-import { CoreHelperUtil, WcHelpersUtil } from '@reown/appkit';
++import { CoreHelperUtil, WcHelpersUtil } from '@reown/appkit-controllers';
+ import { isReownName } from '@reown/appkit-common';
+-import { AdapterBlueprint } from '@reown/appkit/adapters';
++import { AdapterBlueprint } from '@reown/appkit-controllers';
+ import { LedgerId } from '@hashgraph/sdk';
+ import { BrowserProvider, Contract, formatUnits, JsonRpcSigner, parseUnits } from 'ethers';
+ import { HederaConnector } from './connectors';
+diff --git a/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/connectors/HederaConnector.d.ts b/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/connectors/HederaConnector.d.ts
+index 8786597..8891bdb 100644
+--- a/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/connectors/HederaConnector.d.ts
++++ b/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/connectors/HederaConnector.d.ts
+@@ -1,6 +1,6 @@
+ import type { SessionTypes } from '@walletconnect/types';
+ import { CaipNetwork, ChainNamespace } from '@reown/appkit-common';
+-import { AdapterBlueprint, type ChainAdapterConnector } from '@reown/appkit/adapters';
++import { AdapterBlueprint, type ChainAdapterConnector } from '@reown/appkit-controllers';
+ type UniversalProvider = Parameters<AdapterBlueprint['setUniversalProvider']>[0];
+ export declare class HederaConnector implements ChainAdapterConnector {
+     readonly id: "walletConnect";
+diff --git a/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/utils/chains.js b/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/utils/chains.js
+index 6955aa1..dc43f78 100644
+--- a/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/utils/chains.js
++++ b/node_modules/@hashgraph/hedera-wallet-connect/dist/reown/utils/chains.js
+@@ -1,4 +1,4 @@
+-import { WcHelpersUtil } from '@reown/appkit';
++import { WcHelpersUtil } from '@reown/appkit-controllers';
+ import { defineChain } from '@reown/appkit/networks';
+ import { mergeArrays, normalizeNamespaces } from '@walletconnect/utils';
+ import { HederaJsonRpcMethod } from '../..';
