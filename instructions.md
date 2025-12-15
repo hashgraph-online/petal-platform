@@ -56,7 +56,7 @@ npm install @hashgraph/sdk @hashgraphonline/standards-sdk
 
 Hedera Wallet Connect library for web:
 
-npm install @hashgraph/hedera-wallet-connect
+npm install @hashgraphonline/hashinal-wc
 
 
 (Ensure this is the correct package name per the spec; this library will handle wallet connections, likely supporting HashPack or Blade wallets via WalletConnect protocol.)
@@ -83,11 +83,12 @@ Step 3: Implement Wallet Connection (Hedera Wallet Connect Integration)
 
 User Story: “As a user, I want to easily connect my wallet on the home page.”
 
-Initialize wallet connector – Using the @hashgraph/hedera-wallet-connect library, set up a connection flow. This likely involves creating a WalletConnect object with Hedera parameters. For example, in a React context or Next.js component:
+Initialize wallet connector – Using the @hashgraphonline/hashinal-wc library, set up a connection flow. For example, in a React context or Next.js component:
 
-import { HederaWalletConnector } from '@hashgraph/hedera-wallet-connect';
-// ...
-const connector = new HederaWalletConnector({ network: 'testnet' });
+import { HashinalsWalletConnectSDK } from '@hashgraphonline/hashinal-wc';
+import { LedgerId } from '@hashgraph/sdk';
+
+const sdk = HashinalsWalletConnectSDK.getInstance(undefined, LedgerId.TESTNET);
 
 
 (If the library is based on WalletConnect v2, you may need to specify the wallet’s metadata, project ID, etc. Refer to library docs for exact initialization.)

@@ -24,6 +24,7 @@ type TransactionFlowStepConfig = {
 
 type TransactionFlowStepState = TransactionFlowStepConfig & {
   status: TransactionStepStatus;
+  progressPercent?: number;
 };
 
 type TransactionFlowState = {
@@ -47,6 +48,7 @@ type StartFlowArgs = {
 
 type FlowController = {
   activateStep: (id: string, note?: string) => void;
+  setStepProgress: (id: string, progressPercent?: number, note?: string) => void;
   completeStep: (id: string, note?: string) => void;
   skipStep: (id: string, note?: string) => void;
   failStep: (id: string, error: string) => void;
@@ -148,12 +150,25 @@ export function TransactionFlowProvider({ children }: { children: ReactNode }) {
             ...step,
             status,
             note: note ?? step.note,
+            progressPercent: status === "active" ? step.progressPercent : undefined,
           })),
         );
       };
 
       return {
         activateStep: (id, note) => updateStepHelper(id, "active", note),
+        setStepProgress: (id, progressPercent, note) => {
+          guardedUpdate((prev) =>
+            updateStepState(prev, id, (step) => ({
+              ...step,
+              note: note ?? step.note,
+              progressPercent:
+                typeof progressPercent === "number" && Number.isFinite(progressPercent)
+                  ? Math.max(0, Math.min(100, Math.round(progressPercent)))
+                  : undefined,
+            })),
+          );
+        },
         completeStep: (id, note) => updateStepHelper(id, "completed", note),
         skipStep: (id, note) => updateStepHelper(id, "skipped", note),
         failStep: (id, error) => {
@@ -162,6 +177,7 @@ export function TransactionFlowProvider({ children }: { children: ReactNode }) {
               ...step,
               status: "failed",
               note: error,
+              progressPercent: undefined,
             }));
             return { ...next, stage: "failed", error };
           });
@@ -226,14 +242,14 @@ function StatusIcon({ status }: { status: TransactionStepStatus }) {
 
   if (status === "skipped") {
     return (
-      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-holNavy/40 text-[10px] font-semibold text-holNavy/50">
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-muted-foreground">
         •
       </span>
     );
   }
 
   return (
-    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-holNavy/30 text-[10px] font-semibold text-holNavy/40">
+    <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-muted-foreground">
       •
     </span>
   );
@@ -241,75 +257,86 @@ function StatusIcon({ status }: { status: TransactionStepStatus }) {
 
 function TransactionFlowOverlay() {
   const context = useContext(TransactionFlowContext);
-  if (!context || !context.flow || !context.flow.isOpen) {
+  const flow = context?.flow ?? null;
+  const closeFlow = context?.closeFlow;
+  const canDismiss = flow ? flow.stage !== "in-progress" || flow.dismissible : false;
+  const handleCloseClick = useCallback(() => {
+    if (canDismiss) {
+      closeFlow?.();
+    }
+  }, [canDismiss, closeFlow]);
+
+  if (!context || !flow || !flow.isOpen) {
     return null;
   }
 
-  const { flow, closeFlow } = context;
-
-  const canDismiss = flow.stage !== "in-progress" || flow.dismissible;
-
   return (
     <div
-      className="pointer-events-auto fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 px-4 py-8"
+      data-hol-modal-backdrop="transaction-flow"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-3 sm:px-6 py-10 overflow-y-auto"
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-md rounded-2xl border border-holNavy/30 bg-[rgba(12,18,47,0.95)] p-5 shadow-2xl backdrop-blur">
-        <div className="flex items-start justify-between gap-3">
+      <div className="relative w-full max-w-md bg-white text-gray-900 rounded-xl shadow-2xl border border-gray-200 max-h-[85vh] overflow-y-auto dark:bg-gray-900 dark:text-gray-50 dark:border-gray-700">
+        <div className="p-5 border-b border-gray-200 flex items-start justify-between gap-3 dark:border-gray-700">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-holBlue">Transaction flow</p>
-            <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{flow.title}</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-blue">Transaction flow</p>
+            <h2 className="mt-1 text-lg font-semibold">{flow.title}</h2>
             {flow.subtitle ? (
-              <p className="mt-1 text-sm text-[var(--text-primary)]/80">{flow.subtitle}</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{flow.subtitle}</p>
             ) : null}
           </div>
           <button
             type="button"
-            className={`rounded-full border border-holBlue/50 bg-[rgba(18,24,54,0.85)] px-2 py-1 text-xs font-medium transition ${
-              canDismiss
-                ? "text-[var(--text-primary)] hover:border-holPurple/60 hover:text-holPurple"
-                : "cursor-not-allowed text-holNavy/30"
-            }`}
-            onClick={() => {
-              if (canDismiss) {
-                closeFlow();
-              }
-            }}
+            onClick={handleCloseClick}
             disabled={!canDismiss}
+            aria-label="Close"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800"
           >
-            Close
+            ✕
           </button>
         </div>
-        <p className="mt-3 rounded-lg border border-holBlue/30 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-xs text-[var(--text-primary)]/80">
-          Some steps can take a moment to finalize. If the step indicator moves or pauses on a
-          transaction, check your wallet for a pending request and approve it to keep things moving.
-        </p>
-        <div className="mt-4 space-y-3">
-          {flow.steps.map((step) => (
-            <div key={step.id} className="flex items-start gap-3">
-              <span className="mt-0.5">
-                <StatusIcon status={step.status} />
-              </span>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-[var(--text-primary)]">{step.label}</p>
-                {step.note ? (
-                  <p className="text-xs text-[var(--text-primary)]/75">{step.note}</p>
-                ) : null}
+        <div className="p-6 space-y-4">
+          <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+            Some steps can take a moment to finalize. If the step indicator moves or pauses on a
+            transaction, check your wallet for a pending request and approve it to keep things moving.
+          </p>
+          <div className="space-y-3">
+            {flow.steps.map((step) => (
+              <div key={step.id} className="flex items-start gap-3">
+                <span className="mt-0.5">
+                  <StatusIcon status={step.status} />
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{step.label}</p>
+                  {step.note ? (
+                    <p className="text-xs text-gray-600 dark:text-gray-300">{step.note}</p>
+                  ) : null}
+                  {step.status === "active" && typeof step.progressPercent === "number" ? (
+                    <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-1.5 bg-brand-green rounded-full transition-all"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, step.progressPercent))}%`,
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
               </div>
+            ))}
+          </div>
+          {flow.stage === "failed" && flow.error ? (
+            <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-200">
+              {flow.error}
             </div>
-          ))}
+          ) : null}
+          {flow.stage === "completed" && flow.resultNote ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/50 dark:bg-emerald-900/30 dark:text-emerald-100">
+              {flow.resultNote}
+            </div>
+          ) : null}
         </div>
-        {flow.stage === "failed" && flow.error ? (
-          <div className="mt-4 rounded-lg border border-rose-500/50 bg-rose-900/40 p-3 text-sm text-rose-100">
-            {flow.error}
-          </div>
-        ) : null}
-        {flow.stage === "completed" && flow.resultNote ? (
-          <div className="mt-4 rounded-lg border border-emerald-400/50 bg-emerald-900/30 p-3 text-sm text-emerald-100">
-            {flow.resultNote}
-          </div>
-        ) : null}
       </div>
     </div>
   );

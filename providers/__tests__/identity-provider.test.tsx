@@ -3,18 +3,19 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { PetalRecord } from "@/lib/hedera/petals";
 
 const walletModule = vi.hoisted(() => ({
-  selectAccount: vi.fn(async (accountId: string) => ({ accountId })),
   accountId: "0.0.1001",
   signer: { accountId: "0.0.1001", type: "base" },
-  availableAccounts: ["0.0.1001"],
+  sdk: {
+    dAppConnector: {
+      getSigner: vi.fn(() => walletModule.signer),
+    },
+  },
 }));
 
 vi.mock("@/providers/wallet-provider", () => ({
   useWallet: () => ({
     accountId: walletModule.accountId,
-    signer: walletModule.signer,
-    selectAccount: walletModule.selectAccount,
-    availableAccounts: walletModule.availableAccounts,
+    sdk: walletModule.sdk,
   }),
 }));
 
@@ -29,9 +30,23 @@ vi.mock("@/lib/storage", () => ({
   storageNamespaces: { petals: "petals" },
 }));
 
-import { IdentityProvider, useIdentity } from "@/providers/identity-provider";
+import { IdentityProvider, useIdentity } from "../identity-provider";
 
-function IdentityConsumer({ onReady }: { onReady: (value: ReturnType<typeof useIdentity>) => void }) {
+type IdentityContextValue = {
+  activeIdentity: { type: "base" | "petal"; accountId: string; alias?: string } | null;
+  baseAccountId: string | null;
+  petals: PetalRecord[];
+  addPetal: (petal: PetalRecord) => void;
+  updatePetal: (accountId: string, updates: Partial<PetalRecord>) => void;
+  removePetal: (accountId: string) => void;
+  activateIdentity: (accountId: string) => Promise<unknown>;
+};
+
+function IdentityConsumer({
+  onReady,
+}: {
+  onReady: (value: IdentityContextValue) => void;
+}) {
   const identity = useIdentity();
   onReady(identity);
   return null;
@@ -39,7 +54,7 @@ function IdentityConsumer({ onReady }: { onReady: (value: ReturnType<typeof useI
 
 describe("IdentityProvider", () => {
   beforeEach(() => {
-    walletModule.selectAccount.mockClear();
+    walletModule.sdk.dAppConnector.getSigner.mockClear();
     storageModule.readAccountData.mockReset();
     storageModule.writeAccountData.mockReset();
   });
@@ -52,8 +67,8 @@ describe("IdentityProvider", () => {
       },
     ]);
 
-    let latestIdentity: ReturnType<typeof useIdentity> | null = null;
-    const handleReady = (value: ReturnType<typeof useIdentity>) => {
+    let latestIdentity!: IdentityContextValue;
+    const handleReady = (value: IdentityContextValue) => {
       latestIdentity = value;
     };
 
@@ -64,8 +79,8 @@ describe("IdentityProvider", () => {
     );
 
     await waitFor(() => {
-      expect(latestIdentity?.activeIdentity?.accountId).toBe("0.0.1001");
-      expect(latestIdentity?.petals).toHaveLength(1);
+      expect(latestIdentity.activeIdentity?.accountId).toBe("0.0.1001");
+      expect(latestIdentity.petals).toHaveLength(1);
     });
 
     let signer: unknown;
@@ -73,7 +88,6 @@ describe("IdentityProvider", () => {
       signer = await latestIdentity!.activateIdentity("0.0.2001");
     });
 
-    expect(walletModule.selectAccount).not.toHaveBeenCalledWith("0.0.2001");
     expect(signer).toBe(walletModule.signer);
 
     await waitFor(() => {
@@ -88,7 +102,7 @@ describe("IdentityProvider", () => {
   it("persists petal updates via writeAccountData", async () => {
     storageModule.readAccountData.mockReturnValue([]);
 
-    let ctx: ReturnType<typeof useIdentity> | null = null;
+    let ctx!: IdentityContextValue;
     render(
       <IdentityProvider>
         <IdentityConsumer onReady={(value) => {
@@ -97,7 +111,7 @@ describe("IdentityProvider", () => {
       </IdentityProvider>,
     );
 
-    await waitFor(() => expect(ctx).not.toBeNull());
+    await waitFor(() => expect(ctx).toBeDefined());
 
     const petal: PetalRecord = {
       accountId: "0.0.3001",
@@ -106,7 +120,7 @@ describe("IdentityProvider", () => {
     };
 
     await act(async () => {
-      ctx!.addPetal(petal);
+      ctx.addPetal(petal);
     });
 
     expect(storageModule.writeAccountData).toHaveBeenCalledWith(
@@ -117,13 +131,10 @@ describe("IdentityProvider", () => {
     );
   });
 
-  it("re-selects base account identities via the wallet connector", async () => {
+  it("keeps base identity active when requested", async () => {
     storageModule.readAccountData.mockReturnValue([]);
 
-    const returnedSigner = { accountId: "0.0.1001", source: "connector" };
-    walletModule.selectAccount.mockResolvedValueOnce(returnedSigner);
-
-    let latestIdentity: ReturnType<typeof useIdentity> | null = null;
+    let latestIdentity!: IdentityContextValue;
     render(
       <IdentityProvider>
         <IdentityConsumer onReady={(value) => {
@@ -133,15 +144,18 @@ describe("IdentityProvider", () => {
     );
 
     await waitFor(() => {
-      expect(latestIdentity?.activeIdentity?.accountId).toBe("0.0.1001");
+      expect(latestIdentity.activeIdentity?.accountId).toBe("0.0.1001");
     });
 
     let signer: unknown;
     await act(async () => {
-      signer = await latestIdentity!.activateIdentity("0.0.1001");
+      signer = await latestIdentity.activateIdentity("0.0.1001");
     });
 
-    expect(walletModule.selectAccount).toHaveBeenCalledWith("0.0.1001");
-    expect(signer).toBe(returnedSigner);
+    expect(signer).toBe(walletModule.signer);
+    expect(latestIdentity.activeIdentity).toMatchObject({
+      type: "base",
+      accountId: "0.0.1001",
+    });
   });
 });

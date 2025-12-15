@@ -66,7 +66,7 @@ export function readAccountData<T>(
 
     return parsed as T;
   } catch (error) {
-    console.warn("Failed to read storage", namespace, error);
+    void error;
     return fallback;
   }
 }
@@ -88,7 +88,7 @@ export function writeAccountData<T>(
     };
     window.localStorage.setItem(accountKey(namespace, accountId), JSON.stringify(entry));
   } catch (error) {
-    console.warn("Failed to write storage", namespace, error);
+    void error;
   }
 }
 

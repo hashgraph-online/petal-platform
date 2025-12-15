@@ -21,8 +21,12 @@ import {
   type ConnectionTopicMessage,
   type InboxEvent,
 } from "@/lib/hedera/messaging";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { getLogger } from "@/lib/logger";
 import { useToast } from "@/providers/toast-provider";
 import { topicExplorerUrl } from "@/config/topics";
+import { AccountId } from "@hashgraph/sdk";
 
 function decodeMessageText(raw?: string | null): string | null {
   if (!raw) {
@@ -65,8 +69,19 @@ function consensusTimestampToMs(value?: string | null): number | null {
 }
 
 export default function MessagesPage() {
+  const logger = getLogger("messages-page");
   const { activeIdentity, petals, updatePetal } = useIdentity();
-  const { signer } = useWallet();
+  const { sdk, accountId: walletAccountId } = useWallet();
+  const signer = useMemo(() => {
+    if (!sdk || !walletAccountId) {
+      return null;
+    }
+    try {
+      return sdk.dAppConnector.getSigner(AccountId.fromString(walletAccountId));
+    } catch {
+      return null;
+    }
+  }, [sdk, walletAccountId]);
   const { pushToast } = useToast();
   const composerRef = useRef<HTMLDivElement | null>(null);
   const [baseInboundTopicId, setBaseInboundTopicId] = useState<string | null>(null);
@@ -164,7 +179,7 @@ export default function MessagesPage() {
         }
       })
       .catch((error) => {
-        console.warn("sidebar:inbox", error);
+        logger.warn("sidebar:inbox", error);
       });
 
     const unsubscribe = subscribeInbox(resolvedInboundTopicId, (event) => {
@@ -184,7 +199,7 @@ export default function MessagesPage() {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [resolvedInboundTopicId]);
+  }, [resolvedInboundTopicId, logger]);
 
   useEffect(() => {
     if (!activeIdentity?.accountId) {
@@ -284,7 +299,7 @@ export default function MessagesPage() {
       })
       .catch((error) => {
         if (!cancelled) {
-          console.warn("messages:thread-history", error);
+          logger.warn("messages:thread-history", error);
         }
       })
       .finally(() => {
@@ -313,7 +328,7 @@ export default function MessagesPage() {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [preferredConnectionId, connections]);
+  }, [preferredConnectionId, connections, logger]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleConnectionCreated = useCallback(
@@ -423,7 +438,7 @@ export default function MessagesPage() {
         }
         pushToast({ title: `${label} copied`, description: value, variant: "success" });
       } catch (error) {
-        console.error("copy:error", error);
+        logger.error("copy:error", error);
         pushToast({
           title: `Unable to copy ${label}`,
           description: error instanceof Error ? error.message : "Clipboard unavailable",
@@ -431,7 +446,7 @@ export default function MessagesPage() {
         });
       }
     },
-    [pushToast],
+    [pushToast, logger],
   );
 
   const conversationTimeline = useMemo(() => {
@@ -548,7 +563,7 @@ export default function MessagesPage() {
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to create connection";
-        console.error("messages:accept-request", error);
+        logger.error("messages:accept-request", error);
         setRequestStatuses((current) => ({
           ...current,
           [event.sequenceNumber]: { status: "error", error: message },
@@ -563,6 +578,7 @@ export default function MessagesPage() {
       resolvedOutboundTopicId,
       pushToast,
       handleConnectionCreated,
+      logger,
     ],
   );
 
@@ -570,79 +586,93 @@ export default function MessagesPage() {
 
   return (
     <section className="space-y-6">
-      <header className="rounded-3xl border border-holNavy/20 bg-[rgba(18,24,54,0.9)] p-6 shadow-lg backdrop-blur">
+      <Card className="rounded-3xl p-6 shadow-lg backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-holBlue">Chats</p>
-            <h1 className="mt-1 text-3xl font-semibold text-holNavy">Messages</h1>
-            <p className="mt-2 max-w-2xl text-sm text-holNavy/70">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-blue">
+              Chats
+            </p>
+            <h1 className="mt-1 text-3xl font-semibold text-brand-dark">
+              Messages
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
               Inspired by modern messengers: browse channels, catch inbound pings, and spin up new
               conversations powered by HCS-10.
             </p>
-            <p className="mt-2 text-xs text-[var(--text-primary)]/70">
+            <p className="mt-2 text-xs text-muted-foreground">
               HCS-10 keeps direct messages tamper-evident on Hedera and ties discovery to HCS-2/HCS-11
               aliases, so inboxes stay portable across apps.
             </p>
-            <div className="mt-3 space-y-2 text-xs text-[var(--text-primary)]/75">
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/60 bg-amber-900/30 px-3 py-1 font-semibold text-amber-100">
+            <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 font-semibold text-amber-800 dark:border-amber-400/60 dark:bg-amber-900/30 dark:text-amber-100">
                 Alpha: Messaging is experimental — expect rough edges.
               </div>
-              <p className="rounded-lg border border-rose-500/50 bg-rose-900/40 px-3 py-2 text-rose-100">
+              <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700 dark:border-rose-500/50 dark:bg-rose-900/40 dark:text-rose-100">
                 Network visibility: messages are on-chain and readable. Be cautious with links and
                 unknown senders to avoid scams.
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-holNavy/70">
-            <span className="rounded-full bg-holBlue/10 px-3 py-1 font-semibold text-holNavy">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-brand-dark/70">
+            <span className="rounded-full bg-brand-blue/10 px-3 py-1 font-semibold text-brand-dark">
               {connections.length} connections
             </span>
-            <span className="rounded-full bg-holBlue/10 px-3 py-1 font-semibold text-holNavy">
+            <span className="rounded-full bg-brand-blue/10 px-3 py-1 font-semibold text-brand-dark">
               {pendingRequests.length} pending
             </span>
             <button
               type="button"
               onClick={handleStartNewConversation}
-              className="inline-flex items-center gap-2 rounded-full bg-holBlue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-blue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-purple"
             >
               New chat
               <span aria-hidden="true">+</span>
             </button>
           </div>
         </div>
-      </header>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="flex h-[calc(100vh-220px)] min-h-[720px] flex-col overflow-hidden rounded-3xl border border-holNavy/20 bg-[rgba(18,24,54,0.9)] shadow-lg backdrop-blur">
-          <div className="border-b border-holNavy/25 p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-holNavy/60">Active identity</p>
+        <aside className="flex h-[calc(100vh-220px)] min-h-[720px] flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-lg backdrop-blur">
+          <div className="border-b border-border/60 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Active identity
+            </p>
             <div className="mt-2">
-              <h2 className="text-xl font-semibold text-holNavy">{identityLabel}</h2>
-              <p className="text-xs text-holNavy/60">{activeIdentity?.accountId ?? "Connect wallet"}</p>
+              <h2 className="text-xl font-semibold text-brand-dark">
+                {identityLabel}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {activeIdentity?.accountId ?? "Connect wallet"}
+              </p>
             </div>
-            <dl className="mt-4 grid gap-3 text-xs text-holNavy/60">
+            <dl className="mt-4 grid gap-3 text-xs text-muted-foreground">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <dt className="text-holNavy/50">Inbound topic</dt>
-                  <dd className="truncate font-medium text-holNavy">{resolvedInboundTopicId ?? "—"}</dd>
+                  <dt className="text-muted-foreground">Inbound topic</dt>
+                  <dd className="truncate font-medium text-brand-dark">
+                    {resolvedInboundTopicId ?? "—"}
+                  </dd>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleCopy(resolvedInboundTopicId, "Inbound topic")}
-                  className="font-semibold text-holBlue hover:text-holPurple"
+                  className="font-semibold text-brand-blue hover:text-brand-purple"
                 >
                   Copy
                 </button>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <dt className="text-holNavy/50">Outbound topic</dt>
-                  <dd className="truncate font-medium text-holNavy">{resolvedOutboundTopicId ?? "—"}</dd>
+                  <dt className="text-muted-foreground">Outbound topic</dt>
+                  <dd className="truncate font-medium text-brand-dark">
+                    {resolvedOutboundTopicId ?? "—"}
+                  </dd>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleCopy(resolvedOutboundTopicId, "Outbound topic")}
-                  className="font-semibold text-holBlue hover:text-holPurple"
+                  className="font-semibold text-brand-blue hover:text-brand-purple"
                 >
                   Copy
                 </button>
@@ -650,14 +680,16 @@ export default function MessagesPage() {
             </dl>
           </div>
 
-          <div className="border-b border-holNavy/25 p-4">
-            <label className="text-xs font-semibold uppercase tracking-wide text-holNavy/60">Search</label>
-            <input
+          <div className="border-b border-border/60 p-4">
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Search
+            </label>
+            <Input
               type="search"
               value={connectionQuery}
               onChange={(event) => setConnectionQuery(event.target.value)}
               placeholder="Search chats"
-              className="mt-1 w-full rounded-2xl border border-holNavy/20 bg-[rgba(18,24,54,0.85)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/20"
+              className="mt-1 rounded-2xl px-4 py-2"
             />
           </div>
 
@@ -761,7 +793,7 @@ export default function MessagesPage() {
                       return (
                         <div
                           key={`sidebar-request-${item.event.sequenceNumber}`}
-                          className="rounded-2xl border border-holNavy/20 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-sm"
+                          className="rounded-2xl border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm"
                         >
                           <p className="font-semibold">{label}</p>
                           {item.event.note ? (
@@ -827,7 +859,7 @@ export default function MessagesPage() {
                     {sidebarDirectMessages.map((event, index) => (
                       <li
                         key={`${event.kind}-${index}`}
-                        className="rounded-2xl border border-holNavy/20 bg-[rgba(18,24,54,0.85)] px-3 py-2 shadow-sm"
+                        className="rounded-2xl border border-border bg-card px-3 py-2 shadow-sm"
                       >
                         <div className="flex items-center justify-between text-[11px] text-holNavy/60">
                           <span className="font-semibold text-[var(--text-primary)]">
@@ -858,7 +890,7 @@ export default function MessagesPage() {
           </div>
         </aside>
 
-        <div className="flex min-h-[640px] flex-col rounded-3xl border border-holNavy/20 bg-[rgba(18,24,54,0.9)] shadow-lg backdrop-blur">
+        <div className="flex min-h-[640px] flex-col rounded-3xl border border-border bg-card shadow-lg backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-holNavy/25 px-6 py-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-holNavy/60">
@@ -896,7 +928,7 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden bg-[rgba(12,18,47,0.9)]">
+          <div className="flex-1 overflow-hidden bg-muted">
             {activeConnection ? (
               <div className="flex h-full flex-col">
                 <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -921,7 +953,7 @@ export default function MessagesPage() {
                                 className={`max-w-[75%] rounded-3xl px-4 py-2 text-sm shadow-sm ${
                                   item.fromSelf
                                     ? "rounded-br-sm bg-holBlue text-white"
-                                    : "rounded-bl-sm border border-holNavy/30 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)]"
+                                    : "rounded-bl-sm border border-border bg-card text-foreground"
                                 }`}
                               >
                                 <p>
@@ -949,7 +981,7 @@ export default function MessagesPage() {
                   </div>
                 </div>
                 {isThreadLoading ? (
-                  <div className="border-t border-holNavy/25 bg-[rgba(18,24,54,0.9)] px-4 py-2 text-center text-xs text-holNavy/60">
+                  <div className="border-t border-border bg-muted px-4 py-2 text-center text-xs text-muted-foreground">
                     Loading thread…
                   </div>
                 ) : null}
@@ -964,7 +996,7 @@ export default function MessagesPage() {
             )}
           </div>
 
-          <div ref={composerRef} className="border-t border-holNavy/25 bg-[rgba(18,24,54,0.9)] px-4 py-4">
+          <div ref={composerRef} className="border-t border-border bg-card px-4 py-4">
             <ComposeForm
               signer={signer}
               senderAccountId={activeIdentity?.accountId ?? null}

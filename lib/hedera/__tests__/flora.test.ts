@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 
 const sdkState = vi.hoisted(() => ({
   topicMemos: [] as string[],
@@ -79,6 +79,22 @@ const clientModule = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/hedera/client", () => clientModule);
+
+vi.mock("@hashgraphonline/standards-sdk", async () => {
+  const { TopicCreateTransaction, TopicMessageSubmitTransaction } = await import("@hashgraph/sdk");
+  return {
+    buildHcs16CreateTransactionTopicTx: (params: { memo: string }) =>
+      new TopicCreateTransaction().setTopicMemo(params.memo),
+    buildHcs20SubmitMessageTx: (params: {
+      topicId: string;
+      payload: object | string;
+      transactionMemo?: string;
+    }) =>
+      new TopicMessageSubmitTransaction()
+        .setTopicId(params.topicId)
+        .setMessage(typeof params.payload === "string" ? params.payload : JSON.stringify(params.payload)),
+  };
+});
 
 import {
   announceFloraOnCommunicationTopic,

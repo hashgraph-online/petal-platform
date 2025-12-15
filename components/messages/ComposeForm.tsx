@@ -1,16 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from "react";
 import {
   listRecentProfiles,
   searchProfileByAlias,
   type RegistryProfile,
 } from "@/lib/hedera/registry";
 import { sendConnectionRequest, sendConnectionMessage } from "@/lib/hedera/messaging";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
 import type { ConnectionRecord } from "@/lib/hedera/connections";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/Spinner";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/providers/toast-provider";
+import { getLogger } from "@/lib/logger";
+import { AuthRequired } from "@/components/auth/auth-required";
 
 type ComposeFormProps = {
   signer: DAppSigner | null;
@@ -35,6 +46,7 @@ export function ComposeForm({
   senderDisplayName,
   preferredConnectionId,
 }: ComposeFormProps) {
+  const logger = getLogger("compose-form");
   const [recipient, setRecipient] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<ComposeState>("idle");
@@ -82,6 +94,7 @@ export function ComposeForm({
     signer && senderAccountId && inboundTopicId && selectedConnection,
   );
   const isReady = mode === "direct" ? canSendDirect : canSendConnection;
+  const walletDisabled = !signer;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -95,9 +108,9 @@ export function ComposeForm({
       const parsed = JSON.parse(stored) as string[];
       setRecentContacts(parsed.slice(0, 10));
     } catch (error) {
-      console.warn("Failed to parse recent contacts", error);
+      logger.warn("Failed to parse recent contacts", error);
     }
-  }, []);
+  }, [logger]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,13 +121,13 @@ export function ComposeForm({
         }
       })
       .catch((error) => {
-        console.warn("Failed to load profile suggestions", error);
+        logger.warn("Failed to load profile suggestions", error);
       });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [logger]);
 
   const suggestionLookup = useMemo(() => {
     const map = new Map<string, RegistryProfile>();
@@ -187,7 +200,7 @@ export function ComposeForm({
         })
         .catch((error) => {
           if (cancelled) return;
-          console.error("Alias lookup failed", error);
+          logger.error("Alias lookup failed", error);
           setStatusMessage(error instanceof Error ? error.message : "Lookup failed");
           setResolvedProfile(null);
         })
@@ -202,7 +215,7 @@ export function ComposeForm({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [recipient, suggestionLookup, mode]);
+  }, [recipient, suggestionLookup, mode, logger]);
 
   const filteredSuggestions = useMemo(() => {
     const normalized = recipient.trim().toLowerCase();
@@ -293,7 +306,7 @@ export function ComposeForm({
         setStatusMessage("Message sent");
         pushToast({ title: "Message sent", variant: "success" });
       } catch (error) {
-        console.error("Failed to send connection message", error);
+        logger.error("Failed to send connection message", error);
         setStatusMessage(error instanceof Error ? error.message : "Failed to send message");
         pushToast({
           title: "Message failed",
@@ -341,7 +354,7 @@ export function ComposeForm({
         variant: "success",
       });
     } catch (error) {
-      console.error("Failed to send connection request", error);
+      logger.error("Failed to send connection request", error);
       setStatusMessage(error instanceof Error ? error.message : "Failed to send request");
       pushToast({
         title: "Request failed",
@@ -406,57 +419,92 @@ export function ComposeForm({
     }
   }
 
+  const handleDirectMode = useCallback(() => {
+    setMode("direct");
+  }, []);
+
+  const handleConnectionMode = useCallback(() => {
+    setMode("connection");
+  }, []);
+
+  const handleRecipientChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setRecipient(event.target.value);
+      setIsSuggestionsOpen(true);
+    },
+    [],
+  );
+
+  const handleRecipientFocus = useCallback(() => {
+    setIsSuggestionsOpen(true);
+  }, []);
+
+  const handleRecipientBlur = useCallback(() => {
+    window.setTimeout(() => setIsSuggestionsOpen(false), 120);
+  }, []);
+
+  const handleConnectionChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      setSelectedConnectionId(event.target.value);
+    },
+    [],
+  );
+
+  const handleMessageChange = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      setMessage(event.target.value);
+    },
+    [],
+  );
+
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="flex gap-2 text-xs font-semibold text-holNavy/70">
-        <button
-          type="button"
-          onClick={() => setMode("direct")}
-          className={`rounded-full px-3 py-1 transition ${
-            mode === "direct"
-              ? "bg-holBlue text-white shadow"
-              : "border border-holBlue/40 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)] hover:border-holPurple/50 hover:text-holPurple"
-          }`}
-        >
-          Direct alias
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("connection")}
-          disabled={connections.length === 0}
-          className={`rounded-full px-3 py-1 transition ${
-            mode === "connection"
-              ? "bg-holBlue text-white shadow"
-              : "border border-holBlue/40 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)] hover:border-holPurple/50 hover:text-holPurple"
-          } ${connections.length === 0 ? "cursor-not-allowed opacity-60" : ""}`}
-        >
-          Connection channel
-        </button>
-      </div>
+    <AuthRequired
+      enabled={!walletDisabled}
+      title="Wallet required"
+      description="Connect your wallet to send messages."
+    >
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="flex gap-2 text-xs font-semibold text-muted-foreground">
+          <Button
+            type="button"
+            onClick={handleDirectMode}
+            variant={mode === "direct" ? "default" : "outline"}
+            size="sm"
+            className="rounded-full px-3 py-1 text-xs"
+            disabled={walletDisabled}
+          >
+            Direct alias
+          </Button>
+          <Button
+            type="button"
+            onClick={handleConnectionMode}
+            disabled={walletDisabled || connections.length === 0}
+            variant={mode === "connection" ? "default" : "outline"}
+            size="sm"
+            className="rounded-full px-3 py-1 text-xs"
+          >
+            Connection channel
+          </Button>
+        </div>
 
       {mode === "direct" ? (
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-holNavy">Recipient alias</label>
+          <label className="text-sm font-medium text-foreground">Recipient alias</label>
           <div className="relative">
-            <input
+            <Input
               type="text"
               value={recipient}
-              onChange={(event) => {
-                setRecipient(event.target.value);
-                setIsSuggestionsOpen(true);
-              }}
-              onFocus={() => setIsSuggestionsOpen(true)}
-              onBlur={() => {
-                setTimeout(() => setIsSuggestionsOpen(false), 120);
-              }}
+              onChange={handleRecipientChange}
+              onFocus={handleRecipientFocus}
+              onBlur={handleRecipientBlur}
               onKeyDown={handleKeyDown}
-              className="w-full rounded-md border border-holNavy/30 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-sm shadow-sm text-[var(--text-primary)] focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
               placeholder="alice-agent"
               autoComplete="off"
+              disabled={walletDisabled}
             />
             {isSuggestionsOpen && filteredSuggestions.length > 0 ? (
-              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-holNavy/20 bg-[rgba(18,24,54,0.95)] shadow-lg backdrop-blur">
-                <ul className="max-h-64 divide-y divide-holNavy/25 overflow-auto text-sm text-[var(--text-primary)]">
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg backdrop-blur">
+                <ul className="max-h-64 divide-y divide-border overflow-auto text-sm">
                   {filteredSuggestions.map((profile, index) => (
                     <li key={profile.accountId}>
                       <button
@@ -467,14 +515,14 @@ export function ComposeForm({
                         }}
                         className={`flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition ${
                           index === activeSuggestionIndex
-                            ? "bg-holBlue/20"
-                            : "hover:bg-holNavy/30"
+                            ? "bg-muted"
+                            : "hover:bg-muted"
                         }`}
                       >
-                        <span className="font-medium text-[var(--text-primary)]">
+                        <span className="font-medium text-foreground">
                           {profile.displayName ?? profile.alias}
                         </span>
-                        <span className="text-xs text-[var(--text-primary)]/70">
+                        <span className="text-xs text-muted-foreground">
                           {profile.alias ? `@${profile.alias}` : profile.accountId}
                         </span>
                       </button>
@@ -484,7 +532,7 @@ export function ComposeForm({
               </div>
             ) : null}
             {isSuggestionsOpen && filteredSuggestions.length === 0 ? (
-              <div className="absolute z-10 mt-1 w-full rounded-lg border border-dashed border-holNavy/20 bg-[rgba(18,24,54,0.9)] px-3 py-2 text-xs text-[var(--text-primary)]/70 shadow-lg backdrop-blur">
+              <div className="absolute z-10 mt-1 w-full rounded-lg border border-dashed border-border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-lg backdrop-blur">
                 {recipient.trim()
                   ? "No matching profiles in the recent registry snapshot"
                   : "No cached profiles yet. Publish profiles to populate suggestions."}
@@ -493,18 +541,21 @@ export function ComposeForm({
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
             {recentContacts.map((alias) => (
-              <button
+              <Button
                 key={alias}
                 type="button"
                 onClick={() => handleUseRecent(alias)}
-                className="rounded-full border border-holNavy/25 bg-[rgba(18,24,54,0.85)] px-3 py-1 text-xs font-medium text-[var(--text-primary)] shadow-sm transition hover:border-holBlue/40 hover:text-holPurple"
+                variant="outline"
+                size="sm"
+                className="rounded-full px-3 py-1 text-xs"
+                disabled={walletDisabled}
               >
                 @{alias}
-              </button>
+              </Button>
             ))}
           </div>
           {resolvedProfile ? (
-            <p className="text-xs text-holNavy/60">
+            <p className="text-xs text-muted-foreground">
               Resolved: {resolvedProfile.displayName ?? resolvedProfile.alias ?? resolvedProfile.accountId}
               {resolvedProfile.alias ? ` · @${resolvedProfile.alias}` : ""}
             </p>
@@ -512,11 +563,12 @@ export function ComposeForm({
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-holNavy">Connection channel</label>
+          <label className="text-sm font-medium text-foreground">Connection channel</label>
           <select
             value={selectedConnectionId}
-            onChange={(event) => setSelectedConnectionId(event.target.value)}
-            className="w-full rounded-md border border-holNavy/30 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-sm shadow-sm text-[var(--text-primary)] focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+            onChange={handleConnectionChange}
+            disabled={walletDisabled}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             {connections.map((connection) => (
               <option key={connection.connectionTopicId} value={connection.connectionTopicId}>
@@ -525,20 +577,21 @@ export function ComposeForm({
             ))}
           </select>
           {selectedConnection ? (
-            <p className="text-xs text-holNavy/60">
+            <p className="text-xs text-muted-foreground">
               Chat with {selectedConnection.contactDisplayName ?? selectedConnection.contactAlias ?? selectedConnection.contactAccountId}
             </p>
           ) : null}
         </div>
       )}
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-holNavy">
+        <label className="text-sm font-medium text-foreground">
           {mode === "direct" ? "Connection note (optional)" : "Message"}
         </label>
-        <textarea
+        <Textarea
           value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          className="min-h-[120px] w-full rounded-md border border-holNavy/30 bg-[rgba(18,24,54,0.85)] px-3 py-2 text-sm shadow-sm text-[var(--text-primary)] focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+          onChange={handleMessageChange}
+          className="min-h-[120px]"
+          disabled={walletDisabled}
           placeholder={
             mode === "direct"
               ? "Share context or intent for the connection"
@@ -547,17 +600,17 @@ export function ComposeForm({
         />
       </div>
       {mode === "direct" && status === "resolving" ? (
-        <p className="flex items-center gap-2 text-xs text-holNavy/60">
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Spinner size="sm" /> Looking up profile…
         </p>
       ) : null}
       {statusMessage ? (
-        <p className="text-sm text-holNavy/70">{statusMessage}</p>
+        <p className="text-sm text-muted-foreground">{statusMessage}</p>
       ) : null}
-      <button
+      <Button
         type="submit"
-        disabled={!isReady || status !== "idle"}
-        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={walletDisabled || !isReady || status !== "idle"}
+        className="rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 hover:shadow-holPurple/35"
       >
         {status === "sending" ? (
           <span className="flex items-center gap-2">
@@ -568,14 +621,15 @@ export function ComposeForm({
         ) : (
           "Send message"
         )}
-      </button>
-      {!isReady ? (
-        <p className="text-xs text-holNavy/60">
-          {mode === "direct"
-            ? "Resolve a contact and ensure your identity has published inbound & outbound topics."
-            : "Select a connection channel to start chatting."}
-        </p>
-      ) : null}
-    </form>
+      </Button>
+        {!isReady ? (
+          <p className="text-xs text-muted-foreground">
+            {mode === "direct"
+              ? "Resolve a contact and ensure your identity has published inbound & outbound topics."
+              : "Select a connection channel to start chatting."}
+          </p>
+        ) : null}
+      </form>
+    </AuthRequired>
   );
 }

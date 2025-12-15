@@ -1,26 +1,42 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/providers/toast-provider";
 import { z } from "zod";
+import { getLogger } from "@/lib/logger";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { ProfileImageSelector } from "@/components/profile/profile-image-selector";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 
 const profileSchema = z.object({
   alias: z
     .string()
     .min(3, "Alias must be at least 3 characters")
     .max(32, "Alias must be at most 32 characters")
-    .regex(/^[a-z0-9-]+$/i, "Only letters, numbers, and dashes allowed"),
+    .regex(/^[a-z0-9-_]+$/i, "Only letters, numbers, dashes, and underscores allowed"),
   displayName: z
     .string()
     .min(1, "Display name is required")
     .max(80, "Keep the display name under 80 characters"),
   avatarUrl: z
-    .string()
-    .url("Avatar must be a valid URL")
-    .max(200, "Avatar URL is too long")
-    .optional()
-    .or(z.literal("")),
+    .union([
+      z.literal(""),
+      z
+        .string()
+        .url("Avatar must be a valid URL")
+        .max(200, "Avatar URL is too long"),
+      z
+        .string()
+        .regex(
+          /^hcs:\/\/1\/\d+\.\d+\.\d+$/u,
+          "Avatar must be a valid HCS-1 reference (hcs://1/0.0.x)",
+        )
+        .max(200, "Avatar URL is too long"),
+    ])
+    .optional(),
   bio: z
     .string()
     .max(280, "Bio should be 280 characters or less")
@@ -35,9 +51,21 @@ type SubmitState = "idle" | "saving" | "saved" | "error";
 type ProfileFormProps = {
   initialValues?: Partial<ProfileFormValues>;
   onSubmit: (values: ProfileFormValues) => Promise<void>;
+  disabled?: boolean;
+  disabledMessage?: string;
+  network?: "mainnet" | "testnet";
+  signer?: DAppSigner | null;
 };
 
-export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
+export function ProfileForm({
+  initialValues,
+  onSubmit,
+  disabled = false,
+  disabledMessage,
+  network = "testnet",
+  signer = null,
+}: ProfileFormProps) {
+  const logger = getLogger("profile-form");
   const [values, setValues] = useState<ProfileFormValues>({
     alias: initialValues?.alias ?? "",
     displayName: initialValues?.displayName ?? "",
@@ -67,10 +95,31 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
       setStatusMessage("");
     };
 
+  const handleAvatarChange = useCallback(
+    (next: string) => {
+      setValues((current) => ({ ...current, avatarUrl: next }));
+      setStatus("idle");
+      setStatusMessage("");
+    },
+    [],
+  );
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("idle");
     setStatusMessage("");
+    if (disabled) {
+      const message =
+        disabledMessage ?? "Connect your wallet before publishing a profile.";
+      setStatus("error");
+      setStatusMessage(message);
+      pushToast({
+        title: "Wallet required",
+        description: message,
+        variant: "error",
+      });
+      return;
+    }
 
     const parsed = profileSchema.safeParse(values);
     if (!parsed.success) {
@@ -99,7 +148,7 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
       setStatusMessage("Profile saved on Hedera");
       pushToast({ title: "Profile published", variant: "success" });
     } catch (error) {
-      console.error("Failed to submit profile", error);
+      logger.error("Failed to submit profile", error);
       setStatus("error");
       setStatusMessage(
         error instanceof Error ? error.message : "Failed to save profile",
@@ -113,12 +162,12 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-2">
           <span className="text-sm font-medium text-holNavy">Alias</span>
-          <input
+          <Input
             type="text"
             name="alias"
             value={values.alias}
             onChange={handleChange("alias")}
-            className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+            disabled={disabled}
             placeholder="agent-alias"
             autoComplete="off"
           />
@@ -127,18 +176,18 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
           ) : (
             <span className="text-xs text-holNavy/60">
               Stable identifier used for registry discovery. Lowercase, numbers,
-              and dashes only.
+              dashes, and underscores only.
             </span>
           )}
         </label>
         <label className="flex flex-col gap-2">
           <span className="text-sm font-medium text-holNavy">Display name</span>
-          <input
+          <Input
             type="text"
             name="displayName"
             value={values.displayName}
             onChange={handleChange("displayName")}
-            className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+            disabled={disabled}
             placeholder="Alice (Petal)"
             autoComplete="name"
           />
@@ -152,31 +201,25 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
         </label>
       </div>
       <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-holNavy">Avatar URL</span>
-        <input
-          type="url"
-          name="avatarUrl"
-          value={values.avatarUrl}
-          onChange={handleChange("avatarUrl")}
-          className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
-          placeholder="https://cdn.hol.org/avatars/alice.png"
+        <ProfileImageSelector
+          value={values.avatarUrl ?? ""}
+          onChange={handleAvatarChange}
+          network={network}
+          signer={signer}
+          disabled={disabled}
         />
         {errors.avatarUrl ? (
           <span className="text-xs text-red-600">{errors.avatarUrl}</span>
-        ) : (
-          <span className="text-xs text-holNavy/60">
-            Optional image hosted on IPFS or HTTPS to display in messaging and
-            floras.
-          </span>
-        )}
+        ) : null}
       </label>
       <label className="flex flex-col gap-2">
         <span className="text-sm font-medium text-holNavy">Bio</span>
-        <textarea
+        <Textarea
           name="bio"
           value={values.bio}
           onChange={handleChange("bio")}
-          className="min-h-[120px] w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+          disabled={disabled}
+          className="min-h-[120px]"
           placeholder="Summarise this identity for other agents."
         />
         {errors.bio ? (
@@ -188,9 +231,9 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
         )}
       </label>
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="submit"
-          disabled={status === "saving"}
+          disabled={disabled || status === "saving"}
           className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {status === "saving" ? (
@@ -200,7 +243,7 @@ export function ProfileForm({ initialValues, onSubmit }: ProfileFormProps) {
           ) : (
             "Save profile"
           )}
-        </button>
+        </Button>
         {statusMessage ? (
           <span
             className={`text-sm ${

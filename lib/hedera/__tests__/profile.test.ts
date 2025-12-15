@@ -1,12 +1,15 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { createHash } from "crypto";
-import { brotliCompressSync } from "zlib";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 
 const sdkState = vi.hoisted(() => ({
   createdTopicMemos: [] as string[],
   accountMemos: [] as string[],
   publishedMessages: [] as { topicId: string; message: string }[],
+}));
+
+const hrlModule = vi.hoisted(() => ({
+  resolve: vi.fn(),
 }));
 
 const inscribeModule = vi.hoisted(() => ({
@@ -194,9 +197,61 @@ vi.mock("@/lib/hedera/client", () => clientModule);
 
 vi.mock("@/config/topics", () => ({
   getTopicId: () => "0.0.8001",
+  tryGetTopicId: () => "0.0.8001",
 }));
 
-vi.mock("@hashgraphonline/standards-sdk", () => inscribeModule);
+vi.mock("@hashgraphonline/standards-sdk", async () => {
+  const { TopicCreateTransaction, TopicId, TopicMessageSubmitTransaction } = await import("@hashgraph/sdk");
+
+  class HRLResolver {
+    resolve = hrlModule.resolve;
+    constructor() {}
+  }
+
+  class HCS11Client {
+    constructor() {}
+
+    async inscribeProfile() {
+      await inscribeModule.inscribeWithSigner();
+      return {
+        profileTopicId: "0.0.6001",
+        transactionId: "mock-tx",
+        success: true,
+      };
+    }
+  }
+
+  return {
+    inscribeWithSigner: inscribeModule.inscribeWithSigner,
+    HRLResolver,
+    HCS11Client,
+    ProfileType: {
+      PERSONAL: 0,
+      AI_AGENT: 1,
+      MCP_SERVER: 2,
+      FLORA: 3,
+    },
+    buildHcs10CreateInboundTopicTx: (params: { accountId: string; ttl: number }) =>
+      new TopicCreateTransaction().setTopicMemo(
+        `hcs-10:0:${params.ttl}:0:${params.accountId}`,
+      ),
+    buildHcs10CreateOutboundTopicTx: (params: { ttl: number }) =>
+      new TopicCreateTransaction().setTopicMemo(`hcs-10:0:${params.ttl}:1`),
+    buildHcs20SubmitMessageTx: (params: {
+      topicId: string;
+      payload: object | string;
+      transactionMemo?: string;
+    }) => {
+      const tx = new TopicMessageSubmitTransaction()
+        .setTopicId(TopicId.fromString(params.topicId))
+        .setMessage(typeof params.payload === "string" ? params.payload : JSON.stringify(params.payload));
+      if (params.transactionMemo) {
+        tx.setTransactionMemo(params.transactionMemo);
+      }
+      return tx;
+    },
+  };
+});
 
 import {
   createOrUpdateProfile,
@@ -204,6 +259,8 @@ import {
   loadProfileDocument,
   type ProfilePublishingEvent,
 } from "@/lib/hedera/profile";
+import { getDraftFromHcs11Profile } from "@/lib/hedera/hcs-11-profile";
+import { ProfileType } from "@hashgraphonline/standards-sdk";
 
 describe("createOrUpdateProfile", () => {
   beforeEach(() => {
@@ -214,6 +271,7 @@ describe("createOrUpdateProfile", () => {
     mirrorModule.fetchTopicInfo.mockReset();
     mirrorModule.fetchAllTopicMessages.mockReset();
     registryModule.primeRegistryCache.mockReset();
+    hrlModule.resolve.mockReset();
   });
 
   it("creates inbox topic, updates memo, publishes payload, and primes cache", async () => {
@@ -222,6 +280,7 @@ describe("createOrUpdateProfile", () => {
 
     const signer = {
       getAccountKey: vi.fn().mockResolvedValue("public-key"),
+      getAccountId: vi.fn(() => ({ toString: () => "0.0.1234" })),
       signTransaction: vi.fn(),
     } as unknown as DAppSigner;
 
@@ -249,7 +308,7 @@ describe("createOrUpdateProfile", () => {
       base_account: "0.0.1234",
       inboundTopicId: "0.0.5001",
       outboundTopicId: "0.0.5002",
-      type: 1,
+      type: 0,
       version: "1.0",
     });
     expect(sdkState.createdTopicMemos).toEqual([
@@ -275,7 +334,7 @@ describe("createOrUpdateProfile", () => {
       }),
     );
 
-    expect(mirrorModule.lookupAccount).toHaveBeenCalledWith("0.0.1234");
+    expect(mirrorModule.lookupAccount).toHaveBeenCalledWith("0.0.1234", "testnet");
     expect(inscribeModule.inscribeWithSigner).toHaveBeenCalled();
   });
 
@@ -285,6 +344,7 @@ describe("createOrUpdateProfile", () => {
 
     const signer = {
       getAccountKey: vi.fn().mockResolvedValue("public-key"),
+      getAccountId: vi.fn(() => ({ toString: () => "0.0.1234" })),
       signTransaction: vi.fn(),
     } as unknown as DAppSigner;
 
@@ -306,7 +366,8 @@ describe("createOrUpdateProfile", () => {
       },
     );
 
-    expect(events.map((event) => `${event.type}:${event.step}`)).toEqual([
+    const stageEvents = events.filter((event) => event.type !== "progress");
+    expect(stageEvents.map((event) => `${event.type}:${event.step}`)).toEqual([
       "start:ensure-inbound",
       "success:ensure-inbound",
       "start:ensure-outbound",
@@ -327,7 +388,30 @@ describe("profile document helpers", () => {
   it("extracts profile reference from HCS-11 memo", () => {
     expect(extractProfileReferenceFromMemo("hcs-11:hcs://1/0.0.4444")).toBe("hcs://1/0.0.4444");
     expect(extractProfileReferenceFromMemo("HCS-11:hcs://1/0.0.4444")).toBe("hcs://1/0.0.4444");
+    expect(extractProfileReferenceFromMemo("hcs-11:hcs://2/0.0.4444")).toBe("hcs://2/0.0.4444");
     expect(extractProfileReferenceFromMemo("memo")).toBeNull();
+  });
+
+  it("maps HCS-11 profile payload to a profile form draft", () => {
+    const draft = getDraftFromHcs11Profile({
+      version: "1.0",
+      type: ProfileType.PERSONAL,
+      display_name: "Alice",
+      alias: "alice",
+      bio: "Hello",
+      profileImage: "https://example.com/alice.png",
+      inboundTopicId: "0.0.5001",
+      outboundTopicId: "0.0.5002",
+    });
+
+    expect(draft).toEqual({
+      alias: "alice",
+      displayName: "Alice",
+      avatarUrl: "https://example.com/alice.png",
+      bio: "Hello",
+      inboundTopicId: "0.0.5001",
+      outboundTopicId: "0.0.5002",
+    });
   });
 
   it("loads and validates a profile document from topic chunks", async () => {
@@ -343,24 +427,21 @@ describe("profile document helpers", () => {
     const jsonString = JSON.stringify(profileJson);
     const bytes = Buffer.from(jsonString, "utf-8");
     const hash = createHash("sha256").update(bytes).digest("hex");
-    const dataUri = `data:application/json;base64,${bytes.toString("base64")}`;
-    const chunk = {
-      o: 0,
-      c: dataUri,
-    };
-    const encodedMessage = Buffer.from(JSON.stringify(chunk), "utf-8").toString("base64");
+    const contentBuffer = Buffer.from(jsonString, "utf-8");
 
     mirrorModule.fetchTopicInfo.mockResolvedValueOnce({
       topic_id: "0.0.6001",
       memo: `${hash}:none:base64`,
     });
-    mirrorModule.fetchAllTopicMessages.mockResolvedValueOnce([
-      {
-        consensusTimestamp: "1697040101.000000001",
-        sequenceNumber: 0,
-        message: encodedMessage,
-      },
-    ]);
+    hrlModule.resolve.mockResolvedValueOnce({
+      content: contentBuffer.buffer.slice(
+        contentBuffer.byteOffset,
+        contentBuffer.byteOffset + contentBuffer.byteLength,
+      ),
+      contentType: "application/json",
+      topicId: "0.0.6001",
+      isBinary: true,
+    });
 
     const document = await loadProfileDocument("hcs://1/0.0.6001");
 
@@ -369,7 +450,7 @@ describe("profile document helpers", () => {
     expect(document.profile.uaid).toBe("uaid:did:abc");
     expect(document.mimeType).toBe("application/json");
     expect(document.checksumValid).toBe(true);
-    expect(document.chunkCount).toBe(1);
+    expect(document.chunkCount).toBe(0);
   });
 
   it("supports brotli-compressed profile documents", async () => {
@@ -382,25 +463,21 @@ describe("profile document helpers", () => {
     const jsonString = JSON.stringify(profileJson);
     const bytes = Buffer.from(jsonString, "utf-8");
     const hash = createHash("sha256").update(bytes).digest("hex");
-    const compressed = brotliCompressSync(bytes);
-    const base64 = Buffer.from(compressed).toString("base64");
-    const chunk = {
-      o: 0,
-      c: `data:application/json;base64,${base64}`,
-    };
-    const encodedMessage = Buffer.from(JSON.stringify(chunk), "utf-8").toString("base64");
+    const contentBuffer = Buffer.from(jsonString, "utf-8");
 
     mirrorModule.fetchTopicInfo.mockResolvedValueOnce({
       topic_id: "0.0.6002",
       memo: `${hash}:brotli:base64`,
     });
-    mirrorModule.fetchAllTopicMessages.mockResolvedValueOnce([
-      {
-        consensusTimestamp: "1697040102.000000001",
-        sequenceNumber: 0,
-        message: encodedMessage,
-      },
-    ]);
+    hrlModule.resolve.mockResolvedValueOnce({
+      content: contentBuffer.buffer.slice(
+        contentBuffer.byteOffset,
+        contentBuffer.byteOffset + contentBuffer.byteLength,
+      ),
+      contentType: "application/json",
+      topicId: "0.0.6002",
+      isBinary: true,
+    });
 
     const document = await loadProfileDocument("hcs://1/0.0.6002");
 

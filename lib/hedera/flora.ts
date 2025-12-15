@@ -1,9 +1,9 @@
 import { Buffer } from "buffer";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 import {
-  TopicCreateTransaction,
-  TopicMessageSubmitTransaction,
-} from "@hashgraph/sdk";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+  buildHcs16CreateTransactionTopicTx,
+  buildHcs20SubmitMessageTx,
+} from "@hashgraphonline/standards-sdk";
 import { getHederaClient } from "@/lib/hedera/client";
 import { sendDirectMessage, type DirectMessagePayload } from "@/lib/hedera/messaging";
 
@@ -61,7 +61,7 @@ export type FloraStateMessage = {
   from: string;
   summary: string;
   sentAt: string;
-  stateHash?: string | null; // TODO: integrate HCS-17 state hashing when available
+  stateHash?: string | null;
 };
 
 export type FloraVoteMessage = {
@@ -81,15 +81,30 @@ function floraTopicMemo(name: string, suffix: string): string {
   return memo.slice(0, 100);
 }
 
+async function submitFloraMessage(
+  signer: DAppSigner,
+  topicId: string,
+  payload: unknown,
+): Promise<void> {
+  const client = getHederaClient();
+  const tx = buildHcs20SubmitMessageTx({
+    topicId,
+    payload: encodePayload(payload),
+  }).freezeWith(client);
+  await signer.signTransaction(tx);
+  const response = await tx.executeWithSigner(signer);
+  await response.getReceiptWithSigner(signer);
+}
+
 export async function createFloraTopics(
   signer: DAppSigner,
   name: string,
 ): Promise<FloraTopics> {
   const client = getHederaClient();
 
-  const communicationTx = await new TopicCreateTransaction()
-    .setTopicMemo(floraTopicMemo(name, "Comm"))
-    .freezeWith(client);
+  const communicationTx = await buildHcs16CreateTransactionTopicTx({
+    memo: floraTopicMemo(name, "Comm"),
+  }).freezeWith(client);
   await signer.signTransaction(communicationTx);
   const communicationResponse = await communicationTx.executeWithSigner(signer);
   const communicationReceipt = await communicationResponse.getReceiptWithSigner(signer);
@@ -98,9 +113,9 @@ export async function createFloraTopics(
     throw new Error("Failed to create flora communication topic");
   }
 
-  const transactionTx = await new TopicCreateTransaction()
-    .setTopicMemo(floraTopicMemo(name, "Tx"))
-    .freezeWith(client);
+  const transactionTx = await buildHcs16CreateTransactionTopicTx({
+    memo: floraTopicMemo(name, "Tx"),
+  }).freezeWith(client);
   await signer.signTransaction(transactionTx);
   const transactionResponse = await transactionTx.executeWithSigner(signer);
   const transactionReceipt = await transactionResponse.getReceiptWithSigner(signer);
@@ -109,9 +124,9 @@ export async function createFloraTopics(
     throw new Error("Failed to create flora transaction topic");
   }
 
-  const stateTx = await new TopicCreateTransaction()
-    .setTopicMemo(floraTopicMemo(name, "State"))
-    .freezeWith(client);
+  const stateTx = await buildHcs16CreateTransactionTopicTx({
+    memo: floraTopicMemo(name, "State"),
+  }).freezeWith(client);
   await signer.signTransaction(stateTx);
   const stateResponse = await stateTx.executeWithSigner(signer);
   const stateReceipt = await stateResponse.getReceiptWithSigner(signer);
@@ -140,14 +155,7 @@ export async function announceFloraOnCommunicationTopic(
   communicationTopicId: string,
   payload: FloraCreateRequestPayload,
 ): Promise<void> {
-  const client = getHederaClient();
-  const tx = await new TopicMessageSubmitTransaction()
-    .setTopicId(communicationTopicId)
-    .setMessage(encodePayload(payload))
-    .freezeWith(client);
-  await signer.signTransaction(tx);
-  const response = await tx.executeWithSigner(signer);
-  await response.getReceiptWithSigner(signer);
+  await submitFloraMessage(signer, communicationTopicId, payload);
 }
 
 export async function sendFloraJoinAccept(
@@ -155,14 +163,7 @@ export async function sendFloraJoinAccept(
   communicationTopicId: string,
   payload: FloraJoinAcceptPayload,
 ): Promise<void> {
-  const client = getHederaClient();
-  const tx = await new TopicMessageSubmitTransaction()
-    .setTopicId(communicationTopicId)
-    .setMessage(encodePayload(payload))
-    .freezeWith(client);
-  await signer.signTransaction(tx);
-  const response = await tx.executeWithSigner(signer);
-  await response.getReceiptWithSigner(signer);
+  await submitFloraMessage(signer, communicationTopicId, payload);
 }
 
 export async function sendFloraCreated(
@@ -170,14 +171,7 @@ export async function sendFloraCreated(
   communicationTopicId: string,
   payload: FloraCreatedPayload,
 ): Promise<void> {
-  const client = getHederaClient();
-  const tx = await new TopicMessageSubmitTransaction()
-    .setTopicId(communicationTopicId)
-    .setMessage(encodePayload(payload))
-    .freezeWith(client);
-  await signer.signTransaction(tx);
-  const response = await tx.executeWithSigner(signer);
-  await response.getReceiptWithSigner(signer);
+  await submitFloraMessage(signer, communicationTopicId, payload);
 }
 
 export async function sendFloraChat(
@@ -185,14 +179,7 @@ export async function sendFloraChat(
   communicationTopicId: string,
   payload: FloraChatMessage,
 ): Promise<void> {
-  const client = getHederaClient();
-  const tx = await new TopicMessageSubmitTransaction()
-    .setTopicId(communicationTopicId)
-    .setMessage(encodePayload(payload))
-    .freezeWith(client);
-  await signer.signTransaction(tx);
-  const response = await tx.executeWithSigner(signer);
-  await response.getReceiptWithSigner(signer);
+  await submitFloraMessage(signer, communicationTopicId, payload);
 }
 
 export async function sendFloraProposal(
@@ -200,14 +187,7 @@ export async function sendFloraProposal(
   transactionTopicId: string,
   payload: FloraProposalMessage,
 ): Promise<void> {
-  const client = getHederaClient();
-  const tx = await new TopicMessageSubmitTransaction()
-    .setTopicId(transactionTopicId)
-    .setMessage(encodePayload(payload))
-    .freezeWith(client);
-  await signer.signTransaction(tx);
-  const response = await tx.executeWithSigner(signer);
-  await response.getReceiptWithSigner(signer);
+  await submitFloraMessage(signer, transactionTopicId, payload);
 }
 
 export async function sendFloraStateUpdate(
@@ -215,14 +195,7 @@ export async function sendFloraStateUpdate(
   stateTopicId: string,
   payload: FloraStateMessage,
 ): Promise<void> {
-  const client = getHederaClient();
-  const tx = await new TopicMessageSubmitTransaction()
-    .setTopicId(stateTopicId)
-    .setMessage(encodePayload(payload))
-    .freezeWith(client);
-  await signer.signTransaction(tx);
-  const response = await tx.executeWithSigner(signer);
-  await response.getReceiptWithSigner(signer);
+  await submitFloraMessage(signer, stateTopicId, payload);
 }
 
 export async function sendFloraVote(
@@ -230,12 +203,5 @@ export async function sendFloraVote(
   transactionTopicId: string,
   payload: FloraVoteMessage,
 ): Promise<void> {
-  const client = getHederaClient();
-  const tx = await new TopicMessageSubmitTransaction()
-    .setTopicId(transactionTopicId)
-    .setMessage(encodePayload(payload))
-    .freezeWith(client);
-  await signer.signTransaction(tx);
-  const response = await tx.executeWithSigner(signer);
-  await response.getReceiptWithSigner(signer);
+  await submitFloraMessage(signer, transactionTopicId, payload);
 }

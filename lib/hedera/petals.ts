@@ -1,3 +1,5 @@
+"use client";
+
 import {
   AccountCreateTransaction,
   AccountId,
@@ -6,7 +8,7 @@ import {
   PublicKey,
   TransactionId,
 } from "@hashgraph/sdk";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 import {
   HCS15BrowserClient,
   type NetworkType,
@@ -45,11 +47,10 @@ type UpdatePetalMemoInput = {
   memo: string;
 };
 
-function getHcs15Client(signer?: DAppSigner): HCS15BrowserClient {
+function getHcs15Client(): HCS15BrowserClient {
   return new HCS15BrowserClient({
     network: env.HEDERA_NETWORK as NetworkType,
     mirrorNodeUrl: env.NEXT_PUBLIC_MIRROR_NODE_URL,
-    signer,
   });
 }
 

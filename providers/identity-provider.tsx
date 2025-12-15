@@ -12,7 +12,8 @@ import {
 import type { PetalRecord } from "@/lib/hedera/petals";
 import { readAccountData, writeAccountData, storageNamespaces } from "@/lib/storage";
 import { useWallet } from "@/providers/wallet-provider";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
+import { AccountId } from "@hashgraph/sdk";
 
 export type Identity = {
   type: "base" | "petal";
@@ -20,7 +21,7 @@ export type Identity = {
   alias?: string;
 };
 
-type IdentityContextValue = {
+export type IdentityContextValue = {
   activeIdentity: Identity | null;
   baseAccountId: string | null;
   petals: PetalRecord[];
@@ -70,14 +71,20 @@ function identityReducer(state: IdentityState, action: IdentityAction): Identity
 }
 
 export function IdentityProvider({ children }: { children: ReactNode }) {
-  const {
-    accountId: walletAccountId,
-    selectAccount,
-    availableAccounts,
-    signer: walletSigner,
-  } = useWallet();
+  const { accountId: walletAccountId, sdk } = useWallet();
   const [state, dispatch] = useReducer(identityReducer, initialState);
   const { baseAccountId, petals, activeIdentity } = state;
+
+  const walletSigner = useMemo((): DAppSigner | null => {
+    if (!sdk || !walletAccountId) {
+      return null;
+    }
+    try {
+      return sdk.dAppConnector.getSigner(AccountId.fromString(walletAccountId));
+    } catch {
+      return null;
+    }
+  }, [sdk, walletAccountId]);
 
   const loadPetals = useCallback(
     (accountId: string) =>
@@ -151,34 +158,18 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
       const normalizedAccountId = accountId.trim();
       const normalizedBaseAccountId = baseAccountId.trim();
 
-      const isWalletManaged = availableAccounts.some(
-        (value) => value.trim() === normalizedAccountId,
-      );
-
-      if (isWalletManaged) {
-        const signer = await selectAccount(normalizedAccountId);
-
-        if (normalizedAccountId === normalizedBaseAccountId) {
-          dispatch({ type: "setActive", identity: { type: "base", accountId: normalizedAccountId } });
-        } else {
-          const petal = petals.find((item) => item.accountId === normalizedAccountId);
-          dispatch({
-            type: "setActive",
-            identity: {
-              type: "petal",
-              accountId: normalizedAccountId,
-              alias: petal?.alias,
-            },
-          });
-        }
-
-        return signer;
-      }
-
       if (!walletSigner) {
         throw new Error(
           `Wallet does not expose a signer for derived account ${normalizedAccountId}. Reconnect to continue.`,
         );
+      }
+
+      if (normalizedAccountId === normalizedBaseAccountId) {
+        dispatch({
+          type: "setActive",
+          identity: { type: "base", accountId: normalizedAccountId },
+        });
+        return walletSigner;
       }
 
       const petal = petals.find((item) => item.accountId === normalizedAccountId);
@@ -194,10 +185,8 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
       return walletSigner;
     },
     [
-      availableAccounts,
       baseAccountId,
       petals,
-      selectAccount,
       walletSigner,
     ],
   );

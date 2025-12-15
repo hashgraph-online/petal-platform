@@ -1,41 +1,55 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import Image from "next/image";
-import { Roboto, Roboto_Mono } from "next/font/google";
-import { MainNav } from "@/components/navigation/main-nav";
-import { HeaderControls } from "@/components/header/HeaderControls";
+import { Geist, Geist_Mono, Roboto_Mono } from "next/font/google";
+import Navbar from "@/components/site/navbar";
+import Footer from "@/components/site/footer";
 import { AppProviders } from "./providers";
 import "./globals.css";
 
-const roboto = Roboto({
-  variable: "--font-roboto",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
 });
 
 const robotoMono = Roboto_Mono({
   variable: "--font-roboto-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  display: "swap",
 });
 
-const navItems = [
-  { href: "/profile", label: "Profile" },
-  { href: "/petals", label: "Petals" },
-  { href: "/messages", label: "Messages" },
-];
-
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: "HOL Petal Platform",
   description:
     "HOL-built Hedera dApp for profiles, petals, and messaging.",
-  icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+  openGraph: {
+    title: "HOL Petal Platform",
+    description: "HOL-built Hedera dApp for profiles, petals, and messaging.",
+    type: "website",
+    images: [
+      {
+        url: "/og-card.png",
+        width: 1200,
+        height: 630,
+        alt: "HOL Petal Platform",
+      },
+    ],
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "HOL Petal Platform",
+    description: "HOL-built Hedera dApp for profiles, petals, and messaging.",
+    images: ["/og-card.png"],
+    creator: "@HashgraphOnline",
+  },
+  icons: {
+    icon: [{ url: "/favicon.ico" }],
+    apple: "/favicon.ico",
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
@@ -44,30 +58,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="light">
       <body
-        className={`${roboto.variable} ${robotoMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${robotoMono.variable} antialiased transition-colors duration-300 bg-brand-white text-brand-dark dark:bg-gray-950 dark:text-brand-white`}
       >
         <AppProviders>
           <div className="flex min-h-screen flex-col">
-            <header className="border-b border-holNavy/25 bg-[rgba(18,24,54,0.85)] backdrop-blur shadow-lg">
-              <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-                <Link
-                  href="/"
-                  className="flex items-center gap-3 text-lg font-semibold tracking-tight text-holNavy"
-                >
-                  <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-holBlue/50 bg-[rgba(18,24,54,0.95)]">
-                    <Image src="/logo.png" alt="HOL logo" width={40} height={40} priority />
-                  </span>
-                  <span>Petal Platform</span>
-                </Link>
-                <MainNav items={navItems} />
-                <HeaderControls />
-              </div>
-            </header>
+            <Navbar />
             <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
               {children}
             </main>
+            <Footer />
           </div>
         </AppProviders>
       </body>

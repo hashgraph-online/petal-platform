@@ -2,10 +2,10 @@ import {
   AccountId,
   KeyList,
   PublicKey,
-  TopicCreateTransaction,
   TransactionId,
 } from "@hashgraph/sdk";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
+import { buildHcs10CreateConnectionTopicTx } from "@hashgraphonline/standards-sdk";
 import { getHederaClient } from "@/lib/hedera/client";
 import { lookupAccount } from "@/lib/hedera/mirror";
 import { getSignerPublicKey, publicKeyFromMirrorKey } from "@/lib/hedera/keys";
@@ -49,13 +49,6 @@ async function buildSubmitKey(
   return keyList;
 }
 
-function buildConnectionMemo(
-  localInboundTopicId: string,
-  connectionId: number,
-): string {
-  return `hcs-10:1:${CONNECTION_TOPIC_TTL_SECONDS}:2:${localInboundTopicId}:${connectionId}`;
-}
-
 export async function createConnectionTopic(
   context: ConnectionRequestContext,
 ): Promise<string> {
@@ -83,11 +76,13 @@ export async function createConnectionTopic(
   }
 
   const submitKey = await buildSubmitKey(localPublicKey, remotePublicKey);
-  const transaction = new TopicCreateTransaction()
-    .setTopicMemo(buildConnectionMemo(localInboundTopicId, requestSequenceNumber))
-    .setSubmitKey(submitKey)
-    .setAdminKey(localPublicKey)
-    .setTransactionId(TransactionId.generate(AccountId.fromString(localAccountId)));
+  const transaction = buildHcs10CreateConnectionTopicTx({
+    ttl: CONNECTION_TOPIC_TTL_SECONDS,
+    inboundTopicId: localInboundTopicId,
+    connectionId: requestSequenceNumber,
+    adminKey: localPublicKey,
+    submitKey,
+  }).setTransactionId(TransactionId.generate(AccountId.fromString(localAccountId)));
 
   await transaction.freezeWith(client);
   await signer.signTransaction(transaction);

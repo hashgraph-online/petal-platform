@@ -8,6 +8,7 @@ vi.mock("@/lib/hedera/mirror", () => mirrorModule);
 
 vi.mock("@/config/topics", () => ({
   getTopicId: () => "0.0.9001",
+  tryGetTopicId: () => "0.0.9001",
 }));
 
 import {

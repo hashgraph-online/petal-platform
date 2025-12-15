@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 
 const sdkState = vi.hoisted(() => ({
-  submittedMessages: [] as { topicId: string; message: string; memo?: string }[],
+  submittedMessages: [] as {
+    topicId: string;
+    message: string | Uint8Array;
+    memo?: string;
+  }[],
   sequence: 1,
 }));
 
@@ -11,16 +15,22 @@ vi.mock("@hashgraph/sdk", () => {
 
   class TopicMessageSubmitTransaction {
     private topicId = "";
-    private message = "";
+    private message: string | Uint8Array = "";
     private memo: string | undefined;
+    private transactionId: unknown;
 
     setTopicId(topicId: string) {
       this.topicId = topicId;
       return this;
     }
 
-    setMessage(message: string) {
+    setMessage(message: string | Uint8Array) {
       this.message = message;
+      return this;
+    }
+
+    setTransactionId(transactionId: unknown) {
+      this.transactionId = transactionId;
       return this;
     }
 
@@ -51,6 +61,12 @@ vi.mock("@hashgraph/sdk", () => {
 
   return {
     TopicMessageSubmitTransaction,
+    AccountId: {
+      fromString: (value: string) => value,
+    },
+    TransactionId: {
+      generate: vi.fn((accountId: string) => ({ accountId })),
+    },
     TopicId: {
       fromString: (value: string) => value,
     },
@@ -69,6 +85,70 @@ const clientModule = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/hedera/client", () => clientModule);
+
+vi.mock("@hashgraphonline/standards-sdk", async () => {
+  const { TopicMessageSubmitTransaction } = await import("@hashgraph/sdk");
+
+  const encode = (payload: unknown) =>
+    Buffer.from(JSON.stringify(payload), "utf-8").toString("base64");
+
+  return {
+    buildHcs20SubmitMessageTx: (params: {
+      topicId: string;
+      payload: Record<string, unknown>;
+      transactionMemo?: string;
+    }) => {
+      const tx = new TopicMessageSubmitTransaction()
+        .setTopicId(params.topicId)
+        .setMessage(encode(params.payload));
+      if (params.transactionMemo) {
+        tx.setTransactionMemo(params.transactionMemo);
+      }
+      return tx;
+    },
+    buildHcs10SubmitConnectionRequestTx: (params: {
+      inboundTopicId: string;
+      operatorId: string;
+      memo?: string;
+    }) =>
+      new TopicMessageSubmitTransaction()
+        .setTopicId(params.inboundTopicId)
+        .setTransactionMemo("hcs-10:op:3:1")
+        .setMessage(encode({ op: "connection_request", operator_id: params.operatorId, m: params.memo })),
+    buildHcs10OutboundConnectionRequestRecordTx: (params: {
+      outboundTopicId: string;
+      operatorId: string;
+      connectionRequestId: number;
+      memo?: string;
+    }) =>
+      new TopicMessageSubmitTransaction()
+        .setTopicId(params.outboundTopicId)
+        .setTransactionMemo("hcs-10:op:3:2")
+        .setMessage(
+          encode({
+            op: "outbound_connection_request_record",
+            operator_id: params.operatorId,
+            connection_request_id: params.connectionRequestId,
+            m: params.memo,
+          }),
+        ),
+    buildHcs10ConfirmConnectionTx: (params: { inboundTopicId: string }) =>
+      new TopicMessageSubmitTransaction()
+        .setTopicId(params.inboundTopicId)
+        .setTransactionMemo("hcs-10:op:3:3")
+        .setMessage(encode({ op: "confirm_connection" })),
+    buildHcs10OutboundConnectionCreatedRecordTx: (params: { outboundTopicId: string }) =>
+      new TopicMessageSubmitTransaction()
+        .setTopicId(params.outboundTopicId)
+        .setTransactionMemo("hcs-10:op:3:4")
+        .setMessage(encode({ op: "outbound_connection_created_record" })),
+    buildHcs10SendMessageTx: (params: { connectionTopicId: string; data: string }) =>
+      new TopicMessageSubmitTransaction()
+        .setTopicId(params.connectionTopicId)
+        .setTransactionMemo("hcs-10:op:3:5")
+        .setMessage(encode({ op: "send_message", data: params.data })),
+  };
+});
 
 import {
   fetchInboxEvents,
@@ -188,11 +268,13 @@ describe("messaging helpers", () => {
 
     expect(signer.signTransaction).toHaveBeenCalledTimes(1);
     expect(sdkState.submittedMessages[0]?.topicId).toBe("0.0.9001");
-    expect(() =>
-      JSON.parse(
-        Buffer.from(sdkState.submittedMessages[0]?.message ?? "", "base64").toString("utf-8"),
-      ),
-    ).not.toThrow();
+    const message = sdkState.submittedMessages[0]?.message;
+    const decoded = message
+      ? typeof message === "string"
+        ? Buffer.from(message, "base64")
+        : Buffer.from(message)
+      : Buffer.from("");
+    expect(() => JSON.parse(decoded.toString("utf-8"))).not.toThrow();
   });
 
   it("sends connection requests and records outbound logs", async () => {

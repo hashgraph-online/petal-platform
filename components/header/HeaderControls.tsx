@@ -4,6 +4,7 @@ import { ConnectWalletButton } from "@/components/wallet/connect-wallet-button";
 import { HelpModalTrigger } from "@/components/ui/HelpModal";
 import { CacheToolsButton } from "@/components/debug/CacheTools";
 import { useDebug } from "@/providers/debug-provider";
+import { Button } from "@/components/ui/button";
 
 export function HeaderControls() {
   const { debugMode, toggleDebug } = useDebug();
@@ -12,17 +13,19 @@ export function HeaderControls() {
     <div className="flex items-center gap-2">
       <HelpModalTrigger />
       <CacheToolsButton />
-      <button
+      <Button
         type="button"
         onClick={toggleDebug}
-        className={`rounded-full border px-3 py-1 text-xs font-semibold shadow-sm transition ${
+        variant="outline"
+        size="sm"
+        className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${
           debugMode
-            ? "border-holGreen/50 bg-holGreen/15 text-holNavy"
-            : "border-holBlue/60 bg-[rgba(18,24,54,0.85)] text-[var(--text-primary)] hover:border-holPurple/60 hover:text-holPurple"
+            ? "border-brand-green/50 bg-brand-green/15 text-brand-dark"
+            : "border-brand-blue/60 bg-background text-foreground hover:border-brand-purple/60 hover:text-brand-purple"
         }`}
       >
         {debugMode ? "Debug On" : "Debug"}
-      </button>
+      </Button>
       <ConnectWalletButton />
     </div>
   );

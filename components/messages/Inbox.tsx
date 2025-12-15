@@ -12,10 +12,8 @@ import {
 } from "@/lib/hedera/messaging";
 import type { FloraCreateRequestPayload } from "@/lib/hedera/flora";
 import { readAccountData, writeAccountData, storageNamespaces } from "@/lib/storage";
-import { useDebug } from "@/providers/debug-provider";
 import { fetchLatestProfileForAccount } from "@/lib/hedera/registry";
 import { topicExplorerUrl } from "@/config/topics";
-import { isDebug } from "@/config/env";
 import type { ConnectionRecord } from "@/lib/hedera/connections";
 
 export type OptimisticMessage = {
@@ -81,6 +79,57 @@ type TimelineItem =
 
 const MAX_MESSAGES = 200;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isFloraCreateRequestMessage(
+  message: DirectMessage,
+): message is DirectMessage & FloraCreateRequestPayload {
+  if (message.type !== "flora_create_request") {
+    return false;
+  }
+
+  const candidate: unknown = message;
+  if (!isRecord(candidate)) {
+    return false;
+  }
+
+  const flora = candidate.flora;
+  if (!isRecord(flora)) {
+    return false;
+  }
+
+  if (typeof flora.name !== "string" || flora.name.trim().length === 0) {
+    return false;
+  }
+
+  if (
+    typeof flora.communicationTopicId !== "string" ||
+    typeof flora.transactionTopicId !== "string" ||
+    typeof flora.stateTopicId !== "string"
+  ) {
+    return false;
+  }
+
+  const initiator = flora.initiator;
+  if (!isRecord(initiator) || typeof initiator.accountId !== "string") {
+    return false;
+  }
+
+  const members = flora.members;
+  if (!Array.isArray(members)) {
+    return false;
+  }
+
+  const membersValid = members.every((entry) => {
+    if (!isRecord(entry)) return false;
+    return typeof entry.accountId === "string" && entry.accountId.trim().length > 0;
+  });
+
+  return membersValid;
+}
+
 export function Inbox({
   topicId,
   accountId,
@@ -95,7 +144,6 @@ export function Inbox({
   const [contacts, setContacts] = useState<Record<string, ResolvedContact>>({});
   const unsubscribeRef = useRef<(() => void) | undefined>(undefined);
   const emittedConnectionsRef = useRef<Set<string>>(new Set());
-  const { debugMode } = useDebug();
 
   const mapContact = useCallback(
     (account: string): ResolvedContact =>
@@ -195,10 +243,6 @@ export function Inbox({
       if (Object.keys(updates).length > 0) {
         setContacts((current) => ({ ...current, ...updates }));
       }
-
-      if (isDebug && Object.keys(updates).length > 0) {
-        console.debug("inbox:resolvedContacts", updates);
-      }
     },
     [contacts],
   );
@@ -275,27 +319,24 @@ export function Inbox({
         if (cancelled) return;
         resolveContacts(gatherContactsFromEvents(history));
         history.forEach((event) => {
-          if (event.kind === "direct-message" && event.message.type === "flora_create_request" && onFloraInvite) {
-            onFloraInvite(event.message as unknown as FloraCreateRequestPayload);
+          if (event.kind === "direct-message" && onFloraInvite && isFloraCreateRequestMessage(event.message)) {
+            onFloraInvite(event.message);
           }
         });
-        if (debugMode && isDebug) {
-          console.debug("inbox:history", history);
-        }
         setEvents(history);
       })
       .catch((error) => {
-        console.error("Failed to fetch inbox messages", error);
+        void error;
       });
 
     unsubscribeRef.current = subscribeInbox(topicId, (event) => {
       resolveContacts(gatherContactsFromEvents([event]));
       if (
         event.kind === "direct-message" &&
-        event.message.type === "flora_create_request" &&
-        onFloraInvite
+        onFloraInvite &&
+        isFloraCreateRequestMessage(event.message)
       ) {
-        onFloraInvite(event.message as unknown as FloraCreateRequestPayload);
+        onFloraInvite(event.message);
       }
       setEvents((current) => {
         if (event.kind === "direct-message") {
@@ -319,9 +360,6 @@ export function Inbox({
         }
 
         const next = [...current, event];
-        if (debugMode && isDebug) {
-          console.debug("inbox:event", event);
-        }
         if (event.kind === "direct-message") {
           return next
             .slice(-MAX_MESSAGES)
@@ -342,7 +380,7 @@ export function Inbox({
         unsubscribeRef.current = undefined;
       }
     };
-  }, [topicId, accountId, resolveContacts, gatherContactsFromEvents, onFloraInvite, debugMode]);
+  }, [topicId, accountId, resolveContacts, gatherContactsFromEvents, onFloraInvite]);
 
   useEffect(() => {
     if (!storageNamespace || !accountId) {

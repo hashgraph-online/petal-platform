@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormShell } from "@/components/forms/form-shell";
 import { PetalCreateForm, type CreatePetalValues } from "@/components/petals/PetalCreateForm";
 import { PetalList } from "@/components/petals/PetalList";
 import { ProfileForm, type ProfileFormValues } from "@/components/profile/ProfileForm";
+import { Card } from "@/components/ui/card";
+import { AuthRequired } from "@/components/auth/auth-required";
 import { useWallet } from "@/providers/wallet-provider";
 import { useIdentity } from "@/providers/identity-provider";
+import { AccountId } from "@hashgraph/sdk";
 import {
   createPetalAccount,
   fetchPetalRecord,
@@ -20,9 +23,21 @@ import {
 } from "@/lib/hedera/profile";
 import { useTransactionFlow } from "@/providers/transaction-flow-provider";
 import { getSignerPublicKeyString } from "@/lib/hedera/keys";
+import { getLogger } from "@/lib/logger";
 
 export default function PetalsPage() {
-  const { signer } = useWallet();
+  const logger = getLogger("petals-page");
+  const { sdk, accountId: walletAccountId, network: walletNetwork } = useWallet();
+  const signer = useMemo(() => {
+    if (!sdk || !walletAccountId) {
+      return null;
+    }
+    try {
+      return sdk.dAppConnector.getSigner(AccountId.fromString(walletAccountId));
+    } catch {
+      return null;
+    }
+  }, [sdk, walletAccountId]);
   const {
     baseAccountId,
     petals,
@@ -163,7 +178,7 @@ export default function PetalsPage() {
       await activateIdentity(accountId);
       setStatusMessage(`Switched active identity to ${accountId}.`);
     } catch (error) {
-      console.error("Failed to activate identity", error);
+      logger.error("Failed to activate identity", error);
       setStatusMessage(
         error instanceof Error
           ? error.message
@@ -175,6 +190,9 @@ export default function PetalsPage() {
   const handleProfileSubmit = async (values: ProfileFormValues) => {
     if (!selectedPetal) {
       throw new Error("Select a petal to manage its profile");
+    }
+    if (!signer) {
+      throw new Error("Connect your wallet before publishing petal profiles");
     }
     setStatusMessage(null);
 
@@ -207,6 +225,12 @@ export default function PetalsPage() {
         if (event.type === "start") {
           activeStep = event.step;
           profileFlowController.activateStep(event.step, event.message);
+        } else if (event.type === "progress") {
+          profileFlowController.setStepProgress(
+            event.step,
+            event.progressPercent,
+            event.message,
+          );
         } else if (event.type === "success") {
           profileFlowController.completeStep(event.step, event.message);
         } else {
@@ -224,7 +248,7 @@ export default function PetalsPage() {
           inboundTopicId: selectedPetal.inboundTopicId,
         },
         signerForPetal,
-        { payerAccountId, onStep: handleEvent },
+        { payerAccountId, onStep: handleEvent, network: walletNetwork },
       );
 
       updatePetal(selectedPetal.accountId, {
@@ -244,7 +268,7 @@ export default function PetalsPage() {
       if (profileFlowController) {
         profileFlowController.failStep(activeStep, message);
       }
-      console.error("Failed to publish petal profile", error);
+      logger.error("Failed to publish petal profile", error);
       setStatusMessage(
         error instanceof Error
           ? error.message
@@ -254,23 +278,29 @@ export default function PetalsPage() {
     }
   };
 
+  const handleManage = useCallback((accountId: string) => {
+    setSelectedPetalId(accountId);
+  }, []);
+
   return (
     <section className="space-y-8">
-      <header className="space-y-3 rounded-3xl border border-holNavy/25 bg-[rgba(18,24,54,0.9)] p-6 shadow-lg backdrop-blur">
-        <p className="text-sm font-medium text-holBlue">Multi-account</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Petal Accounts</h1>
-        <p className="max-w-2xl text-sm text-[var(--text-primary)]/80">
+      <Card className="space-y-3 rounded-3xl p-6 shadow-lg backdrop-blur">
+        <p className="text-sm font-medium text-brand-blue">Multi-account</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          Petal Accounts
+        </h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
           Create, fund, and switch between HCS-15 petal identities that share
           your key material while keeping assets and personas organized.
         </p>
-        <p className="text-xs text-[var(--text-primary)]/70">
+        <p className="text-xs text-muted-foreground">
           HCS-15 powers petals by anchoring their account memos and registry entries to a shared key,
           so each persona stays portable while inheriting the base signature authority.
         </p>
         {statusMessage ? (
-          <p className="text-sm text-holGreen">{statusMessage}</p>
+          <p className="text-sm text-brand-green">{statusMessage}</p>
         ) : null}
-      </header>
+      </Card>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <FormShell
           title="Petal Directory"
@@ -279,8 +309,9 @@ export default function PetalsPage() {
           <PetalList
             petals={petals}
             activeAccountId={activeIdentity?.accountId ?? null}
+            actionsEnabled={Boolean(signer)}
             onActivate={handleActivate}
-            onManage={(accountId) => setSelectedPetalId(accountId)}
+            onManage={handleManage}
           />
         </FormShell>
         <div className="space-y-6">
@@ -288,24 +319,39 @@ export default function PetalsPage() {
           title="Creation Workflow"
           description="Seed new accounts, configure memos, and link profiles."
         >
-          <PetalCreateForm
-            onCreate={handleCreatePetal}
-            baseAccountId={baseAccountId ?? null}
-            basePublicKey={basePublicKey}
-          />
+          <AuthRequired
+            enabled={Boolean(signer && baseAccountId && basePublicKey)}
+            title="Wallet required"
+            description="Connect your wallet to create a petal account."
+          >
+            <PetalCreateForm
+              onCreate={handleCreatePetal}
+              baseAccountId={baseAccountId ?? null}
+              basePublicKey={basePublicKey}
+            />
+          </AuthRequired>
         </FormShell>
           <FormShell
             title="Petal Profile"
             description="Reuse the profile workflow to register this petal's identity."
           >
             {selectedPetal ? (
-              <ProfileForm
-                key={selectedPetal.accountId}
-                initialValues={profileInitialValues}
-                onSubmit={handleProfileSubmit}
-              />
+              <AuthRequired
+                enabled={Boolean(signer)}
+                title="Wallet required"
+                description="Connect your wallet to publish petal profiles."
+              >
+                <ProfileForm
+                  key={selectedPetal.accountId}
+                  initialValues={profileInitialValues}
+                  onSubmit={handleProfileSubmit}
+                  disabled={!signer}
+                  signer={signer}
+                  network={walletNetwork}
+                />
+              </AuthRequired>
             ) : (
-              <p className="rounded-md border border-dashed border-holNavy/30 bg-[rgba(18,24,54,0.7)] p-4 text-sm text-[var(--text-primary)]/75">
+              <p className="rounded-md border border-dashed border-border bg-muted p-4 text-sm text-muted-foreground">
                 Select a petal from the directory to manage its profile metadata.
               </p>
             )}

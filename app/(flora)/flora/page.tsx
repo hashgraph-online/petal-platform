@@ -10,10 +10,22 @@ import { useFlora } from "@/providers/flora-provider";
 import { useWallet } from "@/providers/wallet-provider";
 import { useIdentity } from "@/providers/identity-provider";
 import { useToast } from "@/providers/toast-provider";
+import { Card } from "@/components/ui/card";
+import { AccountId } from "@hashgraph/sdk";
 
 export default function FloraPage() {
   const { floras, invites, acceptInvite, declineInvite, toggleMute, isMuted } = useFlora();
-  const { signer } = useWallet();
+  const { sdk, accountId: walletAccountId } = useWallet();
+  const signer = useMemo(() => {
+    if (!sdk || !walletAccountId) {
+      return null;
+    }
+    try {
+      return sdk.dAppConnector.getSigner(AccountId.fromString(walletAccountId));
+    } catch {
+      return null;
+    }
+  }, [sdk, walletAccountId]);
   const { activeIdentity } = useIdentity();
   const { pushToast } = useToast();
   const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
@@ -54,18 +66,20 @@ export default function FloraPage() {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-3 rounded-3xl border border-holNavy/25 bg-[rgba(18,24,54,0.9)] p-6 shadow-lg backdrop-blur">
-        <p className="text-sm font-medium text-holBlue">Coordination</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Flora Groups</h1>
-        <p className="max-w-2xl text-sm text-[var(--text-primary)]/80">
+      <Card className="space-y-3 rounded-3xl p-6 shadow-lg backdrop-blur">
+        <p className="text-sm font-medium text-brand-blue">Coordination</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          Flora Groups
+        </h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
           Coordinate multi-party activity using HCS-16 flora topics for
           communication, proposals, and state tracking.
         </p>
-        <p className="text-xs text-[var(--text-primary)]/70">
+        <p className="text-xs text-muted-foreground">
           HCS-16 links three coordinated topics (comm, transaction, state) so every flora keeps chat,
           proposals, and outcomes in sync for all members without a central server.
         </p>
-      </header>
+      </Card>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="space-y-6">
           <FormShell

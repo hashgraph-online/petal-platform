@@ -8,7 +8,7 @@
 - [x] Create `components/` primitives (navigation, forms, topic message list) and wire them into the new routes.
 
 ## Dependencies & Configuration
-- [x] Install Hedera tooling via `npm install @hashgraph/sdk @hashgraphonline/standards-sdk @hashgraphonline/standards-agent-kit @hashgraph/hedera-wallet-connect axios zod dotenv`.
+- [x] Install Hedera tooling via `npm install @hashgraph/sdk @hashgraphonline/standards-sdk @hashgraphonline/standards-agent-kit @hashgraphonline/hashinal-wc axios zod dotenv`.
 - [x] Add `.env.local` with `HEDERA_NETWORK`, `NEXT_PUBLIC_MIRROR_NODE_URL`, `WALLETCONNECT_PROJECT_ID`, and placeholders for registry endpoints.
 - [x] Implement `config/env.ts` to validate env vars with zod and expose normalized configuration/constants.
 - [x] Create `lib/hedera/client.ts` (Hedera Client factory) and `lib/hedera/wallet.ts` (WalletConnect initialization and signer helpers).
@@ -89,7 +89,7 @@
 - [x] Confirm `postcss.config.mjs` and `app/globals.css` include Tailwind directives and base style resets.
 
 ### Step 2 – Hedera SDK & Environment Configuration
-- [x] Install/verify `@hashgraph/sdk`, `@hashgraphonline/standards-sdk`, `@hashgraph/hedera-wallet-connect`, and supporting libs (`axios`, `zod`, `swr`).
+- [x] Install/verify `@hashgraph/sdk`, `@hashgraphonline/standards-sdk`, `@hashgraphonline/hashinal-wc`, and supporting libs (`axios`, `zod`, `swr`).
 - [x] Audit `package.json`/lockfile to ensure dependency versions align with Hedera SDK requirements.
 - [x] Populate `.env.local` with `HEDERA_NETWORK`, `NEXT_PUBLIC_MIRROR_NODE_URL`, `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`, registry topic IDs, and document defaults.
 - [x] Implement/configure `config/env.ts` (or equivalent) using zod to validate required env variables on boot.
@@ -97,7 +97,7 @@
 - [x] Verify sensitive values are not accidentally exposed in client bundles beyond necessary public vars.
 
 ### Step 3 – Wallet Connection Implementation
-- [x] Create Hedera wallet context/provider wrapping `@hashgraph/hedera-wallet-connect` for session management.
+- [x] Create Hedera wallet context/provider wrapping `@hashgraphonline/hashinal-wc` for session management.
 - [x] Implement connect/disconnect flows with UI feedback, storing session metadata in state/localStorage for auto-reconnect.
 - [x] Expose signer, accountId, publicKey, and active identity via React context hooks.
 - [x] Handle wallet errors (rejections, network mismatch) with toast notifications and retry guidance.

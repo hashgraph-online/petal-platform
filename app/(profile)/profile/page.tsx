@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FormShell } from "@/components/forms/form-shell";
 import { ProfileForm, type ProfileFormValues } from "@/components/profile/ProfileForm";
 import { TopicMessageList } from "@/components/topics/topic-message-list";
-import { topicExplorerUrl, getTopicId } from "@/config/topics";
-import { isDebug } from "@/config/env";
+import { topicExplorerUrl, tryGetTopicId } from "@/config/topics";
+import { env, isDebug } from "@/config/env";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   createOrUpdateProfile,
   extractProfileReferenceFromMemo,
@@ -19,6 +21,12 @@ import { readAccountData, removeAccountData, writeAccountData, storageNamespaces
 import { useWallet } from "@/providers/wallet-provider";
 import { useIdentity } from "@/providers/identity-provider";
 import { useTransactionFlow } from "@/providers/transaction-flow-provider";
+import { getLogger } from "@/lib/logger";
+import { ConnectWalletButton } from "@/components/wallet/connect-wallet-button";
+import { AuthRequired } from "@/components/auth/auth-required";
+import { AccountId } from "@hashgraph/sdk";
+import { HCS11Client } from "@hashgraphonline/standards-sdk";
+import { getDraftFromHcs11Profile } from "@/lib/hedera/hcs-11-profile";
 
 type ActivityEntry = {
   id: string;
@@ -55,10 +63,28 @@ type StoredProfile = ProfileFormValues & {
 };
 
 export default function ProfilePage() {
-  const { signer } = useWallet();
+  const logger = getLogger("profile-page");
+  const {
+    sdk,
+    accountId: walletAccountId,
+    network: walletNetwork,
+    topicsReady,
+    topicsLoading: topicsBootstrapping,
+    topicsError: topicsBootstrapError,
+  } = useWallet();
+  const signer = useMemo(() => {
+    if (!sdk || !walletAccountId) {
+      return null;
+    }
+    try {
+      return sdk.dAppConnector.getSigner(AccountId.fromString(walletAccountId));
+    } catch {
+      return null;
+    }
+  }, [sdk, walletAccountId]);
   const { activeIdentity } = useIdentity();
   const { startFlow } = useTransactionFlow();
-  const accountId = activeIdentity?.accountId ?? null;
+  const accountId = activeIdentity?.accountId ?? walletAccountId ?? null;
   const [activity, setActivity] = useState<ActivityEntry[]>(initialActivity);
   const [lastInboundTopicId, setLastInboundTopicId] = useState<string | undefined>();
   const [lastOutboundTopicId, setLastOutboundTopicId] = useState<string | undefined>();
@@ -69,6 +95,18 @@ export default function ProfilePage() {
   const [profileDocument, setProfileDocument] = useState<LoadedProfileDocument | null>(null);
   const [viewError, setViewError] = useState<string | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [prefillLoading, setPrefillLoading] = useState(false);
+  const prefillAttemptKeyRef = useRef<string | null>(null);
+  const prefillInFlightKeyRef = useRef<string | null>(null);
+
+  const isFormEmpty = useCallback((values: ProfileFormValues) => {
+    const hasAnyValue =
+      values.alias.trim().length > 0 ||
+      values.displayName.trim().length > 0 ||
+      (values.avatarUrl?.trim().length ?? 0) > 0 ||
+      (values.bio?.trim().length ?? 0) > 0;
+    return !hasAnyValue;
+  }, []);
 
   useEffect(() => {
     if (!accountId) {
@@ -110,7 +148,9 @@ export default function ProfilePage() {
           <div className="space-y-1">
             <p>Cached profile reference {stored.profileReference}.</p>
             {stored.accountMemo ? (
-              <p className="text-xs text-slate-500">Last memo {stored.accountMemo}</p>
+              <p className="text-xs text-muted-foreground">
+                Last memo {stored.accountMemo}
+              </p>
             ) : null}
           </div>
         ) : stored.accountMemo ? (
@@ -142,7 +182,153 @@ export default function ProfilePage() {
     if (cachedDocument?.reference) {
       setProfileDocument(cachedDocument);
     }
-  }, [accountId]);
+  }, [accountId, logger]);
+
+  useEffect(() => {
+    if (!accountId) {
+      setPrefillLoading(false);
+      prefillAttemptKeyRef.current = null;
+      prefillInFlightKeyRef.current = null;
+      return;
+    }
+
+    const referenceFromMemo = extractProfileReferenceFromMemo(accountMemo);
+    const network =
+      walletNetwork === "mainnet" || walletNetwork === "testnet"
+        ? walletNetwork
+        : env.HEDERA_NETWORK === "mainnet"
+          ? "mainnet"
+          : "testnet";
+
+    const attemptKey = `${accountId}:${network}:${accountMemo ?? "no-memo"}`;
+
+    if (!isFormEmpty(formDefaults)) {
+      return;
+    }
+
+    if (
+      prefillAttemptKeyRef.current === attemptKey ||
+      prefillInFlightKeyRef.current === attemptKey
+    ) {
+      return;
+    }
+
+    prefillInFlightKeyRef.current = attemptKey;
+    setPrefillLoading(true);
+
+    let cancelled = false;
+
+    const resolveFromAccountMemo = async () => {
+      const client = new HCS11Client({
+        network,
+        auth: { operatorId: accountId },
+        silent: true,
+        logLevel: "warn",
+      });
+
+      const response = await client.fetchProfileByAccountId(accountId, network);
+      if (!response.success || !response.profile) {
+        throw new Error(response.error ?? "Profile not found for this account");
+      }
+
+      return { profile: response.profile, topicInfo: response.topicInfo };
+    };
+
+    const run = async () => {
+      try {
+        setViewError(null);
+        const resolved = await resolveFromAccountMemo();
+
+        if (cancelled) {
+          return;
+        }
+
+        const draft = getDraftFromHcs11Profile(resolved.profile);
+        const inboundTopicCandidate =
+          draft.inboundTopicId ?? resolved.topicInfo?.inboundTopic;
+        const outboundTopicCandidate =
+          draft.outboundTopicId ?? resolved.topicInfo?.outboundTopic;
+        const profileTopicCandidate =
+          resolved.topicInfo?.profileTopicId;
+
+        const inboundTopicId =
+          inboundTopicCandidate && inboundTopicCandidate.trim().length > 0
+            ? inboundTopicCandidate
+            : undefined;
+        const outboundTopicId =
+          outboundTopicCandidate && outboundTopicCandidate.trim().length > 0
+            ? outboundTopicCandidate
+            : undefined;
+        const profileTopicId =
+          profileTopicCandidate && profileTopicCandidate.trim().length > 0
+            ? profileTopicCandidate
+            : undefined;
+
+        setFormDefaults({
+          alias: draft.alias,
+          displayName: draft.displayName,
+          avatarUrl: draft.avatarUrl,
+          bio: draft.bio,
+        });
+        setLastInboundTopicId(inboundTopicId);
+        setLastOutboundTopicId(outboundTopicId);
+        setLastProfileTopicId(profileTopicId);
+
+        const stored: StoredProfile = {
+          alias: draft.alias,
+          displayName: draft.displayName,
+          avatarUrl: draft.avatarUrl,
+          bio: draft.bio,
+          inboundTopicId,
+          outboundTopicId,
+          profileTopicId,
+          accountMemo,
+          accountMemoVerified: Boolean(accountMemo),
+          profileReference: referenceFromMemo ?? undefined,
+        };
+
+        writeAccountData(storageNamespaces.profile, accountId, stored, {
+          ttlMs: 12 * 60 * 60 * 1000,
+        });
+        setStoredProfile(stored);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        const err = error instanceof Error ? error : new Error(String(error));
+        if (isDebug) {
+          logger.warn("profile:auto-load", err);
+        }
+        setViewError(err.message);
+      } finally {
+        if (prefillInFlightKeyRef.current === attemptKey) {
+          prefillInFlightKeyRef.current = null;
+        }
+        setPrefillLoading(false);
+        if (!cancelled) {
+          prefillAttemptKeyRef.current = attemptKey;
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+      if (prefillInFlightKeyRef.current === attemptKey) {
+        prefillInFlightKeyRef.current = null;
+      }
+      setPrefillLoading(false);
+    };
+  }, [
+    accountId,
+    storedProfile,
+    accountMemo,
+    logger,
+    walletNetwork,
+    formDefaults,
+    isFormEmpty,
+  ]);
 
   useEffect(() => {
     if (!accountId) {
@@ -160,14 +346,14 @@ export default function ProfilePage() {
       })
       .catch((error) => {
         if (isDebug) {
-          console.warn("profile:lookup-account", error);
+          logger.warn("profile:lookup-account", error);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [accountId]);
+  }, [accountId, logger]);
 
   const profileReference = useMemo(() => {
     if (storedProfile?.profileReference) {
@@ -181,6 +367,14 @@ export default function ProfilePage() {
   const handleSubmit = async (values: ProfileFormValues) => {
     if (!signer || !accountId) {
       throw new Error("Connect a wallet before publishing a profile.");
+    }
+    if (!topicsReady) {
+      throw new Error(
+        topicsBootstrapError ??
+          (topicsBootstrapping
+            ? "Initializing registry topics. Approve the WalletConnect prompts to continue."
+            : "Registry topics are not configured yet."),
+      );
     }
 
     const profileFlowSteps: Array<{ id: ProfilePublishingStep; label: string }> = [
@@ -204,6 +398,12 @@ export default function ProfilePage() {
       if (event.type === "start") {
         activeStep = event.step;
         flowController.activateStep(event.step, event.message);
+      } else if (event.type === "progress") {
+        flowController.setStepProgress(
+          event.step,
+          event.progressPercent,
+          event.message,
+        );
       } else if (event.type === "success") {
         flowController.completeStep(event.step, event.message);
       } else {
@@ -224,7 +424,7 @@ export default function ProfilePage() {
           profileTopicId: lastProfileTopicId,
         },
         signer,
-        { payerAccountId: accountId, onStep: handleEvent },
+        { payerAccountId: accountId, onStep: handleEvent, network: walletNetwork },
       );
 
       setLastInboundTopicId(result.inboundTopicId);
@@ -250,7 +450,16 @@ export default function ProfilePage() {
       setViewError(null);
       removeAccountData(storageNamespaces.profileDocument, accountId);
 
-      const registryLink = topicExplorerUrl(getTopicId("profileRegistry"));
+      const registryTopicId =
+        tryGetTopicId(
+          "profileRegistry",
+          "environment",
+          walletNetwork === "mainnet" ? "mainnet" : "testnet",
+        ) ??
+        (() => {
+          throw new Error("Profile registry topic is not configured.");
+        })();
+      const registryLink = topicExplorerUrl(registryTopicId, walletNetwork);
       const inboundLink = topicExplorerUrl(result.inboundTopicId);
       const profileLink = topicExplorerUrl(result.profileTopicId);
       const memoStatusCopy = result.accountMemoVerified
@@ -264,16 +473,16 @@ export default function ProfilePage() {
           content: (
             <div className="space-y-1">
               <p>Profile saved. Memo {result.accountMemo}.</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Profile reference {result.profileReference}
               </p>
-              <p className="text-xs text-slate-500">{memoStatusCopy}</p>
+              <p className="text-xs text-muted-foreground">{memoStatusCopy}</p>
               <div className="flex flex-wrap gap-2 text-xs">
                 <a
                   href={registryLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-holBlue hover:text-holPurple"
+                  className="font-medium text-brand-blue hover:text-brand-purple"
                 >
                   View registry topic
                 </a>
@@ -281,7 +490,7 @@ export default function ProfilePage() {
                   href={inboundLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-holBlue hover:text-holPurple"
+                  className="font-medium text-brand-blue hover:text-brand-purple"
                 >
                   View inbox topic
                 </a>
@@ -289,7 +498,7 @@ export default function ProfilePage() {
                   href={profileLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-holBlue hover:text-holPurple"
+                  className="font-medium text-brand-blue hover:text-brand-purple"
                 >
                   View profile document
                 </a>
@@ -310,7 +519,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleViewProfile = async () => {
+  const handleViewProfile = useCallback(async () => {
     if (!accountId) {
       return;
     }
@@ -342,50 +551,72 @@ export default function ProfilePage() {
     } finally {
       setViewLoading(false);
     }
-  };
+  }, [accountId, storedProfile?.profileReference, accountMemo]);
 
   return (
     <section className="space-y-8">
-      <header className="space-y-3 rounded-3xl border border-holNavy/25 bg-[rgba(18,24,54,0.9)] p-6 shadow-lg backdrop-blur">
-        <p className="text-sm font-medium text-holBlue">Identity</p>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Profile</h1>
-        <p className="max-w-2xl text-sm text-[var(--text-primary)]/80">
+      <Card className="space-y-3 rounded-3xl p-6 shadow-lg backdrop-blur">
+        <p className="text-sm font-medium text-brand-blue">Identity</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Profile</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
           Manage your HCS-11 profile, publish updates to the registry, and
           review on-chain metadata tied to the current identity.
         </p>
-      </header>
+      </Card>
       <div className="grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <FormShell
           title="Profile Details"
           description="Collect alias, display information, and link inbound topics."
           actions={
-            !accountId ? (
-              <p className="text-sm text-slate-500">
-                Connect your Hedera wallet to enable profile publishing.
-              </p>
+            !walletAccountId ? (
+              <ConnectWalletButton />
             ) : canViewProfile ? (
-              <button
+              <Button
                 type="button"
                 onClick={handleViewProfile}
                 disabled={viewLoading}
                 title={profileDocument ? "Refresh published profile" : undefined}
-                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full bg-gradient-to-r from-brand-blue to-brand-purple px-5 py-2 font-semibold text-white shadow-brand-blue ring-1 ring-brand-blue/40 transition hover:shadow-brand-purple"
               >
                 {viewLoading ? "Loading…" : "View Profile"}
-              </button>
+              </Button>
             ) : (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted-foreground">
                 Account memo does not reference an HCS-11 profile yet.
               </p>
             )
           }
         >
           {viewError ? (
-            <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {viewError}
             </div>
+          ) : prefillLoading && isFormEmpty(formDefaults) ? (
+            <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Loading on-chain profile…
+            </div>
           ) : null}
-          <ProfileForm initialValues={formDefaults} onSubmit={handleSubmit} />
+          <AuthRequired
+            enabled={Boolean(signer)}
+            title="Wallet required"
+            description="Connect your wallet to publish or update a profile."
+          >
+            <ProfileForm
+              initialValues={formDefaults}
+              onSubmit={handleSubmit}
+              disabled={!signer || topicsBootstrapping || !topicsReady}
+              signer={signer}
+              network={walletNetwork}
+              disabledMessage={
+                !signer
+                  ? "Connect your wallet to publish or update a profile."
+                  : topicsBootstrapError ??
+                    (topicsBootstrapping
+                      ? "Initializing registry topics. Approve the WalletConnect prompts to continue."
+                      : "Registry topics are not configured yet.")
+              }
+            />
+          </AuthRequired>
         </FormShell>
         <div className="space-y-4">
           <FormShell
@@ -401,59 +632,71 @@ export default function ProfilePage() {
             >
               <div className="space-y-3 text-sm">
                 <div>
-                  <p className="text-xs font-medium uppercase text-slate-500">Display Name</p>
-                  <p className="text-slate-800">{profileDocument.profile.display_name}</p>
+                  <p className="text-xs font-medium uppercase text-muted-foreground">
+                    Display Name
+                  </p>
+                  <p className="text-foreground">{profileDocument.profile.display_name}</p>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Alias</p>
-                    <p className="text-slate-800">{profileDocument.profile.alias ?? "—"}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Alias</p>
+                    <p className="text-foreground">{profileDocument.profile.alias ?? "—"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">UAID</p>
-                    <p className="break-all text-slate-800">{profileDocument.profile.uaid}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">UAID</p>
+                    <p className="break-all text-foreground">{profileDocument.profile.uaid}</p>
                   </div>
                 </div>
                 {profileDocument.profile.bio ? (
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Bio</p>
-                    <p className="text-slate-800">{profileDocument.profile.bio}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Bio</p>
+                    <p className="text-foreground">{profileDocument.profile.bio}</p>
                   </div>
                 ) : null}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Inbound Topic</p>
-                    <p className="text-slate-800">{profileDocument.profile.inboundTopicId ?? "—"}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">
+                      Inbound Topic
+                    </p>
+                    <p className="text-foreground">
+                      {profileDocument.profile.inboundTopicId ?? "—"}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Outbound Topic</p>
-                    <p className="text-slate-800">{profileDocument.profile.outboundTopicId ?? "—"}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">
+                      Outbound Topic
+                    </p>
+                    <p className="text-foreground">
+                      {profileDocument.profile.outboundTopicId ?? "—"}
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Profile Topic</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">
+                      Profile Topic
+                    </p>
                     <a
                       href={topicExplorerUrl(profileDocument.topicId)}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-slate-800 underline decoration-dotted underline-offset-2"
+                      className="text-foreground underline decoration-dotted underline-offset-2"
                     >
                       {profileDocument.topicId}
                     </a>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Reference</p>
-                    <p className="break-all text-slate-800">{profileDocument.reference}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Reference</p>
+                    <p className="break-all text-foreground">{profileDocument.reference}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Checksum</p>
-                    <p className="break-all text-slate-800">{profileDocument.memoHash}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Checksum</p>
+                    <p className="break-all text-foreground">{profileDocument.memoHash}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Integrity</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Integrity</p>
                     <p className={profileDocument.checksumValid ? "text-emerald-600" : "text-rose-600"}>
                       {profileDocument.checksumValid ? "Verified" : "Mismatch"}
                     </p>
@@ -461,21 +704,23 @@ export default function ProfilePage() {
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Chunks</p>
-                    <p className="text-slate-800">{profileDocument.chunkCount}</p>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">Chunks</p>
+                    <p className="text-foreground">{profileDocument.chunkCount}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase text-slate-500">Retrieved</p>
-                    <p className="text-slate-800">
+                    <p className="text-xs font-medium uppercase text-muted-foreground">
+                      Retrieved
+                    </p>
+                    <p className="text-foreground">
                       {new Date(profileDocument.retrievedAt).toLocaleString()}
                     </p>
                   </div>
                 </div>
-                <details className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <summary className="cursor-pointer text-xs font-medium text-slate-600">
+                <details className="rounded-md border border-border bg-muted p-3">
+                  <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
                     View raw JSON
                   </summary>
-                  <pre className="mt-2 max-h-64 overflow-auto rounded bg-white p-3 text-xs text-slate-700">
+                  <pre className="mt-2 max-h-64 overflow-auto rounded bg-background p-3 text-xs text-muted-foreground">
                     {profileDocument.rawJson}
                   </pre>
                 </details>

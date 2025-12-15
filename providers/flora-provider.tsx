@@ -9,7 +9,7 @@ import {
   useReducer,
   type ReactNode,
 } from "react";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 import {
   createFloraTopics,
   sendFloraCreateRequest,

@@ -1,7 +1,7 @@
 import axios, { AxiosError } from "axios";
 import type { AxiosRequestConfig } from "axios";
 import useSWR, { SWRConfiguration, mutate as globalMutate } from "swr";
-import { env, isDebug } from "@/config/env";
+import { env, getMirrorNodeUrl } from "@/config/env";
 
 export type MirrorTopicMessage = {
   consensusTimestamp: string;
@@ -88,16 +88,6 @@ function recordMirrorPerformance(durationMs: number, meta: { status?: number; ur
   mirrorPerformance.totalRequestMs += durationMs;
   mirrorPerformance.samples += 1;
   mirrorPerformance.lastErrorStatus = meta.error ? meta.status ?? null : null;
-
-  if (isDebug) {
-    console.debug("mirror:http", {
-      url: meta.url,
-      attempt: meta.attempt,
-      durationMs: Number(durationMs.toFixed(2)),
-      status: meta.status,
-      error: meta.error ?? false,
-    });
-  }
 }
 
 function buildMirrorUrl(path: string): string {
@@ -109,6 +99,12 @@ function buildMirrorUrl(path: string): string {
     return `${base}${path}`;
   }
   return `${base}/${path}`;
+}
+
+function getMirrorBaseUrl(network?: "mainnet" | "testnet"): string {
+  const resolvedNetwork =
+    network ?? (env.HEDERA_NETWORK === "mainnet" ? "mainnet" : "testnet");
+  return getMirrorNodeUrl(resolvedNetwork).replace(/\/$/, "");
 }
 
 export function getMirrorPerformance() {
@@ -246,8 +242,11 @@ export async function fetchAllTopicMessages(
   return messages;
 }
 
-export async function fetchTopicInfo(topicId: string): Promise<MirrorTopicInfo | null> {
-  const url = `${env.NEXT_PUBLIC_MIRROR_NODE_URL}/topics/${topicId}`;
+export async function fetchTopicInfo(
+  topicId: string,
+  network?: "mainnet" | "testnet",
+): Promise<MirrorTopicInfo | null> {
+  const url = `${getMirrorBaseUrl(network)}/topics/${topicId}`;
   try {
     return await httpGetWithRetry<MirrorTopicInfo>(url, {});
   } catch (error) {
@@ -259,8 +258,11 @@ export async function fetchTopicInfo(topicId: string): Promise<MirrorTopicInfo |
   }
 }
 
-export async function lookupAccount(accountId: string): Promise<MirrorAccount | null> {
-  const url = `${env.NEXT_PUBLIC_MIRROR_NODE_URL}/accounts/${accountId}`;
+export async function lookupAccount(
+  accountId: string,
+  network?: "mainnet" | "testnet",
+): Promise<MirrorAccount | null> {
+  const url = `${getMirrorBaseUrl(network)}/accounts/${accountId}`;
 
   try {
     const data = await httpGetWithRetry<MirrorAccount>(url, {});
@@ -298,7 +300,7 @@ export function subscribeTopicWebsocket(
       const payload = JSON.parse(event.data as string) as MirrorTopicMessage;
       onMessage(payload);
     } catch (error) {
-      console.error("Failed to parse mirror node message", error);
+      void error;
     }
   });
 

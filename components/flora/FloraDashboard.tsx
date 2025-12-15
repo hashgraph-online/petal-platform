@@ -18,9 +18,11 @@ import {
   type FloraVoteMessage,
 } from "@/lib/hedera/flora";
 import type { FloraRecord } from "@/providers/flora-provider";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
 import { isDebug } from "@/config/env";
 import { useDebug } from "@/providers/debug-provider";
+import { AuthRequired } from "@/components/auth/auth-required";
+import { getLogger } from "@/lib/logger";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 
 const MAX_EVENTS = 200;
 
@@ -47,13 +49,15 @@ function decodeMessage(message: MirrorTopicMessage) {
     return JSON.parse(json) as unknown;
   } catch (error) {
     if (isDebug) {
-      console.warn("Failed to decode flora topic message", error);
+      const logger = getLogger("flora-dashboard");
+      logger.warn("Failed to decode flora topic message", error);
     }
     return null;
   }
 }
 
 export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }: FloraDashboardProps) {
+  const logger = getLogger("flora-dashboard");
   const [commEvents, setCommEvents] = useState<FloraEvent[]>([]);
   const [txEvents, setTxEvents] = useState<FloraEvent[]>([]);
   const [stateEvents, setStateEvents] = useState<FloraEvent[]>([]);
@@ -96,7 +100,7 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
             .filter((item) => item.payload !== null) as FloraEvent[];
           setter(events.reverse());
         })
-        .catch((error) => console.error("Failed to fetch flora events", error));
+        .catch((error) => logger.error("Failed to fetch flora events", error));
 
       const unsubscribe = subscribeTopicWebsocket(topicId, (message) => {
         const payload = decodeMessage(message);
@@ -125,7 +129,7 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
         unsubscribe?.();
       };
     },
-    [],
+    [logger],
   );
 
   useEffect(() => subscribe(communicationTopic, setCommEvents), [communicationTopic, subscribe]);
@@ -200,7 +204,7 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
       from: accountId,
       summary: stateSummary.trim(),
       sentAt: new Date().toISOString(),
-      stateHash: null, // TODO: compute HCS-17 state hash when state tracking is implemented.
+      stateHash: null,
     };
     await sendFloraStateUpdate(signer, stateTopic, payload);
     setStateSummary("");
@@ -253,22 +257,28 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
                 </li>
               ))}
             </ul>
-            <form className="mt-3 space-y-2" onSubmit={handleSendChat}>
-              <textarea
-                value={chatMessage}
-                onChange={(event) => setChatMessage(event.target.value)}
-                disabled={!canInteract}
-                className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
-                placeholder="Share an update with the flora"
-              />
-              <button
-                type="submit"
-                disabled={!canInteract || muted}
-                className="rounded-full bg-holBlue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Send message
-              </button>
-            </form>
+            <AuthRequired
+              enabled={canInteract}
+              title="Wallet required"
+              description="Connect your wallet to post flora messages."
+            >
+              <form className="mt-3 space-y-2" onSubmit={handleSendChat}>
+                <textarea
+                  value={chatMessage}
+                  onChange={(event) => setChatMessage(event.target.value)}
+                  disabled={!canInteract}
+                  className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  placeholder="Share an update with the flora"
+                />
+                <button
+                  type="submit"
+                  disabled={!canInteract || muted}
+                  className="rounded-full bg-holBlue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Send message
+                </button>
+              </form>
+            </AuthRequired>
           </div>
         </div>
 
@@ -299,61 +309,73 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
                   })}
               </ul>
             </div>
-            <form className="space-y-2" onSubmit={handleSendProposal}>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={proposalId}
-                  onChange={(event) => setProposalId(event.target.value)}
-                  disabled={!canInteract}
-                  className="w-40 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
-                  placeholder="proposal-id"
-                />
-                <input
-                  type="text"
-                  value={proposalText}
-                  onChange={(event) => setProposalText(event.target.value)}
-                  disabled={!canInteract}
-                  className="flex-1 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
-                  placeholder="Describe the proposal"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={!canInteract || muted}
-                className="rounded-full bg-holBlue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Publish proposal
-              </button>
-            </form>
-            <form className="space-y-2" onSubmit={handleSendVote}>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={voteProposalId}
-                  onChange={(event) => setVoteProposalId(event.target.value)}
-                  disabled={!canInteract}
-                  className="w-40 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
-                  placeholder="proposal-id"
-                />
-                <select
-                  value={voteChoice}
-                  onChange={(event) => setVoteChoice(event.target.value as "yes" | "no")}
-                  disabled={!canInteract}
-                  className="rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+            <AuthRequired
+              enabled={canInteract}
+              title="Wallet required"
+              description="Connect your wallet to publish proposals."
+            >
+              <form className="space-y-2" onSubmit={handleSendProposal}>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={proposalId}
+                    onChange={(event) => setProposalId(event.target.value)}
+                    disabled={!canInteract}
+                    className="w-40 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="proposal-id"
+                  />
+                  <input
+                    type="text"
+                    value={proposalText}
+                    onChange={(event) => setProposalText(event.target.value)}
+                    disabled={!canInteract}
+                    className="flex-1 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="Describe the proposal"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!canInteract || muted}
+                  className="rounded-full bg-holBlue px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                disabled={!canInteract || muted}
-                className="rounded-full bg-holNavy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Submit vote
-              </button>
-            </form>
+                  Publish proposal
+                </button>
+              </form>
+            </AuthRequired>
+            <AuthRequired
+              enabled={canInteract}
+              title="Wallet required"
+              description="Connect your wallet to submit votes."
+            >
+              <form className="space-y-2" onSubmit={handleSendVote}>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={voteProposalId}
+                    onChange={(event) => setVoteProposalId(event.target.value)}
+                    disabled={!canInteract}
+                    className="w-40 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="proposal-id"
+                  />
+                  <select
+                    value={voteChoice}
+                    onChange={(event) => setVoteChoice(event.target.value as "yes" | "no")}
+                    disabled={!canInteract}
+                    className="rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={!canInteract || muted}
+                  className="rounded-full bg-holNavy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Submit vote
+                </button>
+              </form>
+            </AuthRequired>
           </div>
         </div>
       </section>
@@ -385,22 +407,28 @@ export function FloraDashboard({ flora, signer, accountId, muted, onToggleMute }
               );
             })}
           </ul>
-          <form className="space-y-2" onSubmit={handleStateUpdate}>
-            <textarea
-              value={stateSummary}
-              onChange={(event) => setStateSummary(event.target.value)}
-              disabled={!canInteract}
-              className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
-              placeholder="Summarize the latest flora state. Include hashes when available."
-            />
-            <button
-              type="submit"
-              disabled={!canInteract || muted}
-              className="rounded-full bg-holNavy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Publish state update
-            </button>
-          </form>
+          <AuthRequired
+            enabled={canInteract}
+            title="Wallet required"
+            description="Connect your wallet to publish state updates."
+          >
+            <form className="space-y-2" onSubmit={handleStateUpdate}>
+              <textarea
+                value={stateSummary}
+                onChange={(event) => setStateSummary(event.target.value)}
+                disabled={!canInteract}
+                className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30 disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="Summarize the latest flora state. Include hashes when available."
+              />
+              <button
+                type="submit"
+                disabled={!canInteract || muted}
+                className="rounded-full bg-holNavy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Publish state update
+              </button>
+            </form>
+          </AuthRequired>
         </div>
       </section>
     </div>

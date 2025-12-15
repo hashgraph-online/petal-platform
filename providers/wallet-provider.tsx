@@ -1,186 +1,261 @@
-"use client";
+'use client';
 
+import { LedgerId } from '@hashgraph/sdk';
+import type { HashinalsWalletConnectSDK } from '@hashgraphonline/hashinal-wc';
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
-} from "react";
-import type { DAppConnector, DAppSigner } from "@hashgraph/hedera-wallet-connect";
-import { AccountId } from "@hashgraph/sdk";
-import { getWalletConnector, resetWalletConnector } from "@/lib/hedera/wallet";
+} from 'react';
+import { appUrl, env, walletConnectProjectId } from '@/config/env';
+import { ensureHcs2RegistryTopics } from '@/lib/hedera/hcs2-topic-bootstrap';
 
-const SESSION_STORAGE_KEY = "petal-wallet-session";
+type Network = 'mainnet' | 'testnet';
 
-export type WalletContextValue = {
-  connect: () => Promise<void>;
+export type WalletContextType = {
+  sdk: HashinalsWalletConnectSDK | null;
+  isConnected: boolean;
+  isLoading: boolean;
+  topicsReady: boolean;
+  topicsLoading: boolean;
+  topicsError?: string;
+  accountId?: string;
+  network: Network;
+  connect: () => Promise<string | undefined>;
   disconnect: () => Promise<void>;
-  signer: DAppSigner | null;
-  accountId: string | null;
-  availableAccounts: string[];
-  selectAccount: (accountId: string) => Promise<DAppSigner>;
-  isConnecting: boolean;
+  setNetwork: (n: Network) => void;
 };
 
-const WalletContext = createContext<WalletContextValue | undefined>(undefined);
+export const WalletContext = createContext<WalletContextType | null>(null);
 
-function normalizeAccount(account: string): string {
-  const segments = account.split(":");
-  return segments.length >= 3 ? segments[2] : account;
-}
+const PROJECT_ID =
+  process.env.NEXT_PUBLIC_WC_PROJECT_ID || walletConnectProjectId || '';
 
-function extractAccounts(namespaces: Record<string, { accounts: string[] }> | undefined) {
-  if (!namespaces) {
-    return [] as string[];
-  }
-  const accounts: string[] = [];
-  for (const namespace of Object.values(namespaces)) {
-    if (!namespace.accounts) {
-      continue;
-    }
-    for (const account of namespace.accounts) {
-      accounts.push(normalizeAccount(account));
-    }
-  }
-  return Array.from(new Set(accounts));
+const initializedSdkKeys = new Set<string>();
+
+function normalizeNetwork(value: string): Network {
+  return value === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [connector, setConnector] = useState<DAppConnector | null>(null);
-  const [signer, setSigner] = useState<DAppSigner | null>(null);
-  const [accountId, setAccountId] = useState<string | null>(null);
-  const [availableAccounts, setAvailableAccounts] = useState<string[]>([]);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [resolvedAppUrl, setResolvedAppUrl] = useState(() => {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return window.location.origin;
+    }
+    return appUrl ?? 'http://localhost:3000';
+  });
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [topicsReady, setTopicsReady] = useState(false);
+  const [topicsLoading, setTopicsLoading] = useState(false);
+  const [topicsError, setTopicsError] = useState<string | undefined>();
+  const [sdk, setSDK] = useState<HashinalsWalletConnectSDK | null>(null);
+  const [network, setNetwork] = useState<Network>(
+    normalizeNetwork(
+      process.env.NEXT_PUBLIC_NETWORK ?? env.HEDERA_NETWORK,
+    ),
+  );
+  const [accountId, setAccountId] = useState<string | undefined>();
+  const bootstrappedForRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function bootstrapConnection() {
-      try {
-        const instance = await getWalletConnector();
-        if (cancelled) {
-          return;
-        }
-        setConnector(instance);
-        const existingSigners = instance.signers ?? [];
-        if (existingSigners.length === 0) {
-          return;
-        }
-        const accounts = existingSigners.map((item) => item.getAccountId().toString());
-        setAvailableAccounts(accounts);
-        const storedAccountId =
-          typeof window !== "undefined"
-            ? window.localStorage.getItem(SESSION_STORAGE_KEY)
-            : null;
-        const targetAccountId = storedAccountId && accounts.includes(storedAccountId)
-          ? storedAccountId
-          : accounts[0];
-        if (targetAccountId) {
-          const normalized = AccountId.fromString(targetAccountId);
-          try {
-            const signerForAccount = instance.getSigner(normalized);
-            setSigner(signerForAccount);
-            setAccountId(normalized.toString());
-          } catch (error) {
-            console.warn("Failed to restore wallet signer", error);
-          }
-        }
-      } catch (error) {
-        console.warn("Unable to bootstrap wallet connector", error);
-      }
+    if (typeof window === 'undefined') {
+      return;
     }
+    const currentOrigin = window.location.origin;
+    if (currentOrigin && currentOrigin !== resolvedAppUrl) {
+      setResolvedAppUrl(currentOrigin);
+    }
+  }, [resolvedAppUrl]);
 
-    void bootstrapConnection();
-
-    return () => {
-      cancelled = true;
-    };
+  const getLedgerId = useCallback((target: Network) => {
+    return target === 'mainnet' ? LedgerId.MAINNET : LedgerId.TESTNET;
   }, []);
 
-  const connect = useCallback(async () => {
-    setIsConnecting(true);
-    try {
-      const instance = connector ?? (await getWalletConnector());
-      setConnector(instance);
-
-      const session = await instance.openModal();
-      const accounts = extractAccounts(session.namespaces);
-      if (accounts.length === 0) {
-        throw new Error("Wallet did not provide an account");
-      }
-
-      const account = AccountId.fromString(accounts[0]);
-      const sessionSigner = instance.getSigner(account);
-
-      setSigner(sessionSigner);
-      const normalizedAccounts = accounts.map((value) => AccountId.fromString(value).toString());
-      setAccountId(account.toString());
-      setAvailableAccounts(normalizedAccounts);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(SESSION_STORAGE_KEY, account.toString());
-      }
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [connector]);
-
-  const disconnect = useCallback(async () => {
-    try {
-      await connector?.disconnectAll();
-    } finally {
-      resetWalletConnector();
-      setConnector(null);
-      setSigner(null);
-      setAccountId(null);
-      setAvailableAccounts([]);
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      }
-    }
-  }, [connector]);
-
-  const selectAccount = useCallback(
-    async (targetAccountId: string) => {
-      if (!connector) {
-        throw new Error("Connect a wallet before selecting accounts");
-      }
-
-      const normalized = AccountId.fromString(targetAccountId);
-
-      try {
-        const signerForAccount = connector.getSigner(normalized);
-        setSigner(signerForAccount);
-        setAccountId(normalized.toString());
-        if (!availableAccounts.includes(normalized.toString())) {
-          setAvailableAccounts((prev) => [...prev, normalized.toString()]);
-        }
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(SESSION_STORAGE_KEY, normalized.toString());
-        }
-        return signerForAccount;
-      } catch (error) {
-        console.error("Failed to select wallet account", error);
-        throw new Error(`Wallet cannot sign for ${normalized.toString()}`);
-      }
-    },
-    [connector, availableAccounts],
+  const projectMetadata = useMemo(
+    () => ({
+      name: process.env.NEXT_PUBLIC_APP_NAME || 'HOL Petal Platform',
+      description:
+        process.env.NEXT_PUBLIC_APP_DESCRIPTION ||
+        'HOL-built Hedera dApp for profiles, petals, and messaging.',
+      url: resolvedAppUrl,
+      icons: [
+        process.env.NEXT_PUBLIC_APP_ICON ||
+          'https://raw.githubusercontent.com/hashgraph/hedera-brand-assets/main/icons/safari-pinned-tab.svg',
+      ],
+    }),
+    [resolvedAppUrl],
   );
 
-  const value = useMemo<WalletContextValue>(
-    () => ({ connect, disconnect, signer, accountId, availableAccounts, selectAccount, isConnecting }),
-    [connect, disconnect, signer, accountId, availableAccounts, selectAccount, isConnecting],
+  const ensureSdkInstance = useCallback(
+    async (targetNetwork: Network) => {
+      const { HashinalsWalletConnectSDK } = await import(
+        '@hashgraphonline/hashinal-wc'
+      );
+      const ledger = getLedgerId(targetNetwork);
+      const instance = HashinalsWalletConnectSDK.getInstance(undefined, ledger);
+      if (!instance) {
+        setSDK(null);
+        setIsConnected(false);
+        setAccountId(undefined);
+        return null;
+      }
+      instance.setNetwork(ledger);
+      try {
+        const initKey = `${targetNetwork}:${PROJECT_ID}`;
+        if (!initializedSdkKeys.has(initKey)) {
+          await instance.init(PROJECT_ID, projectMetadata, ledger);
+          initializedSdkKeys.add(initKey);
+        }
+        const acct = await instance.initAccount(PROJECT_ID, projectMetadata, ledger);
+        if (acct?.accountId) {
+          setIsConnected(true);
+          setAccountId(acct.accountId);
+        } else {
+          setIsConnected(false);
+          setAccountId(undefined);
+        }
+      } catch {
+        setIsConnected(false);
+        setAccountId(undefined);
+      }
+      setSDK(instance);
+      return instance;
+    },
+    [getLedgerId, projectMetadata],
+  );
+
+  useEffect(() => {
+    void ensureSdkInstance(network);
+  }, [network, ensureSdkInstance]);
+
+  const bootstrapTopics = useCallback(
+    async (instance: HashinalsWalletConnectSDK, connectedAccountId: string) => {
+      const key = `${network}:${connectedAccountId}`;
+      if (bootstrappedForRef.current === key && topicsReady) {
+        return;
+      }
+
+      setTopicsLoading(true);
+      setTopicsError(undefined);
+      try {
+        await ensureHcs2RegistryTopics({ hwc: instance, network });
+        setTopicsReady(true);
+        bootstrappedForRef.current = key;
+      } catch (error) {
+        setTopicsReady(false);
+        bootstrappedForRef.current = null;
+        const message = error instanceof Error ? error.message : 'Failed to initialize registry topics';
+        setTopicsError(message);
+      } finally {
+        setTopicsLoading(false);
+      }
+    },
+    [network, topicsReady],
+  );
+
+  useEffect(() => {
+    if (!sdk || !isConnected || !accountId) {
+      setTopicsReady(false);
+      setTopicsLoading(false);
+      setTopicsError(undefined);
+      bootstrappedForRef.current = null;
+      return;
+    }
+
+    void bootstrapTopics(sdk, accountId);
+  }, [sdk, isConnected, accountId, bootstrapTopics]);
+
+  const connect = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const instance = sdk ?? (await ensureSdkInstance(network));
+      if (!instance) return undefined;
+      const ledger = getLedgerId(network);
+      if (!ledger) return undefined;
+      const response = await instance.connectWallet(PROJECT_ID, projectMetadata, ledger);
+      const nextAccountId = response?.accountId;
+      if (!nextAccountId) {
+        setIsConnected(false);
+        setAccountId(undefined);
+        return undefined;
+      }
+      setIsConnected(true);
+      setAccountId(nextAccountId);
+      void bootstrapTopics(instance, nextAccountId);
+      return nextAccountId;
+    } catch (error) {
+      setIsConnected(false);
+      setAccountId(undefined);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sdk, ensureSdkInstance, network, getLedgerId, projectMetadata, bootstrapTopics]);
+
+  const disconnect = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      if (sdk) {
+        try {
+          await sdk.disconnectWallet(true);
+        } catch {}
+      }
+    } finally {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('connectedAccountId');
+        window.localStorage.removeItem('connectedNetwork');
+      }
+      setIsConnected(false);
+      setAccountId(undefined);
+      setTopicsReady(false);
+      setTopicsLoading(false);
+      setTopicsError(undefined);
+      bootstrappedForRef.current = null;
+      setIsLoading(false);
+    }
+  }, [sdk]);
+
+  const value = useMemo<WalletContextType>(
+    () => ({
+      sdk,
+      isConnected,
+      isLoading,
+      topicsReady,
+      topicsLoading,
+      topicsError,
+      accountId,
+      network,
+      connect,
+      disconnect,
+      setNetwork,
+    }),
+    [
+      sdk,
+      isConnected,
+      isLoading,
+      topicsReady,
+      topicsLoading,
+      topicsError,
+      accountId,
+      network,
+      connect,
+      disconnect,
+    ],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
 
-export function useWallet(): WalletContextValue {
+export function useWallet(): WalletContextType {
   const context = useContext(WalletContext);
   if (!context) {
-    throw new Error("useWallet must be used within a WalletProvider");
+    throw new Error('useWallet must be used within a WalletProvider');
   }
   return context;
 }

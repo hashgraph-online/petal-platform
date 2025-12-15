@@ -8,6 +8,11 @@ import { useWallet } from "@/providers/wallet-provider";
 import { useFlora } from "@/providers/flora-provider";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/providers/toast-provider";
+import { getLogger } from "@/lib/logger";
+import { AuthRequired } from "@/components/auth/auth-required";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { AccountId } from "@hashgraph/sdk";
 
 const aliasSchema = z
   .string()
@@ -30,9 +35,21 @@ type PendingInvitee = {
 type WizardState = "idle" | "resolving" | "creating";
 
 export function NewFloraWizard() {
+  const logger = getLogger("new-flora-wizard");
   const { activeIdentity } = useIdentity();
-  const { signer } = useWallet();
+  const { sdk, accountId: walletAccountId } = useWallet();
+  const signer = useMemo(() => {
+    if (!sdk || !walletAccountId) {
+      return null;
+    }
+    try {
+      return sdk.dAppConnector.getSigner(AccountId.fromString(walletAccountId));
+    } catch {
+      return null;
+    }
+  }, [sdk, walletAccountId]);
   const { createFlora } = useFlora();
+  const walletDisabled = !signer;
 
   const [name, setName] = useState("");
   const [aliasInput, setAliasInput] = useState("");
@@ -48,6 +65,10 @@ export function NewFloraWizard() {
   async function handleAddInvitee(event?: React.FormEvent | React.MouseEvent) {
     event?.preventDefault?.();
     setStatusMessage(null);
+    if (walletDisabled) {
+      setStatusMessage("Connect your wallet to add invitees.");
+      return;
+    }
 
     const parsedAlias = aliasSchema.safeParse(aliasInput);
     if (!parsedAlias.success) {
@@ -73,7 +94,7 @@ export function NewFloraWizard() {
       setAliasInput("");
       pushToast({ title: "Invitee added", variant: "success" });
     } catch (error) {
-      console.error("Failed to resolve alias", error);
+      logger.error("Failed to resolve alias", error);
       setStatusMessage(error instanceof Error ? error.message : "Lookup failed");
       pushToast({
         title: "Invite lookup failed",
@@ -113,7 +134,7 @@ export function NewFloraWizard() {
       setStatusMessage("Flora requested. Awaiting member responses.");
       pushToast({ title: "Flora request sent", variant: "success" });
     } catch (error) {
-      console.error("Flora creation failed", error);
+      logger.error("Flora creation failed", error);
       setStatusMessage(error instanceof Error ? error.message : "Failed to create flora");
       pushToast({
         title: "Flora creation failed",
@@ -126,14 +147,20 @@ export function NewFloraWizard() {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleCreateFlora}>
+    <AuthRequired
+      enabled={!walletDisabled}
+      title="Wallet required"
+      description="Connect your wallet to create a flora."
+    >
+      <form className="space-y-4" onSubmit={handleCreateFlora}>
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-holNavy">Flora name</label>
-        <input
+        <Input
           type="text"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+          disabled={walletDisabled}
+          className="border-holNavy/20 focus-visible:ring-holBlue/30"
           placeholder="Agent coordination group"
         />
       </div>
@@ -141,17 +168,18 @@ export function NewFloraWizard() {
       <div className="space-y-3">
         <p className="text-sm font-medium text-holNavy">Invite members</p>
         <div className="flex gap-2">
-          <input
+          <Input
             type="text"
             value={aliasInput}
             onChange={(event) => setAliasInput(event.target.value)}
-            className="flex-1 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+            disabled={walletDisabled}
+            className="flex-1 border-holNavy/20 focus-visible:ring-holBlue/30"
             placeholder="alice-agent"
           />
-          <button
+          <Button
             type="button"
             className="rounded-full bg-holNavy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-holPurple disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={status === "resolving"}
+            disabled={walletDisabled || status === "resolving"}
             onClick={handleAddInvitee}
           >
             {status === "resolving" ? (
@@ -161,7 +189,7 @@ export function NewFloraWizard() {
             ) : (
               "Add"
             )}
-          </button>
+          </Button>
         </div>
         <div className="space-y-2">
           {invitees.length === 0 ? (
@@ -179,6 +207,7 @@ export function NewFloraWizard() {
                   <button
                     type="button"
                     className="text-xs font-medium text-red-600"
+                    disabled={walletDisabled}
                     onClick={() =>
                       setInvitees((current) =>
                         current.filter((item) => item.profile.accountId !== invitee.profile.accountId),
@@ -198,7 +227,7 @@ export function NewFloraWizard() {
         <p className="text-sm text-holNavy/70">{statusMessage}</p>
       ) : null}
 
-      <button
+      <Button
         type="submit"
         className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={!canCreate || status === "creating"}
@@ -210,10 +239,8 @@ export function NewFloraWizard() {
         ) : (
           "Create flora"
         )}
-      </button>
-      {!signer ? (
-        <p className="text-xs text-holNavy/60">Connect your wallet to create a flora.</p>
-      ) : null}
-    </form>
+      </Button>
+      </form>
+    </AuthRequired>
   );
 }

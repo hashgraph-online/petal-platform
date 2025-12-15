@@ -1,21 +1,17 @@
 "use client";
 
-import type {
-  DAppConnector,
-  HederaJsonRpcMethod,
-  HederaSessionEvent,
-} from "@hashgraph/hedera-wallet-connect";
+import type { HashinalsWalletConnectSDK } from "@hashgraphonline/hashinal-wc";
 import { LedgerId } from "@hashgraph/sdk";
 import { appUrl, env, isDebug, walletConnectProjectId } from "@/config/env";
 
-let connector: DAppConnector | null = null;
+let sdkInstance: HashinalsWalletConnectSDK | null = null;
 
 function resolveMetadataUrl(): string {
-  if (appUrl) {
-    return appUrl;
-  }
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin;
+  }
+  if (appUrl) {
+    return appUrl;
   }
   return "https://petal-platform.local";
 }
@@ -45,37 +41,36 @@ function resolveLedgerId(): LedgerId {
   }
 }
 
-export async function getWalletConnector(): Promise<DAppConnector> {
-  if (connector) {
-    return connector;
-  }
+export function getWalletLedgerId(): LedgerId {
+  return resolveLedgerId();
+}
 
+export function getWalletMetadata() {
+  return buildMetadata();
+}
+
+export async function getWalletSdk(): Promise<HashinalsWalletConnectSDK> {
+  const { HashinalsWalletConnectSDK } = await import(
+    "@hashgraphonline/hashinal-wc"
+  );
+  const ledger = resolveLedgerId();
+  if (!sdkInstance) {
+    sdkInstance = HashinalsWalletConnectSDK.getInstance(undefined, ledger);
+  }
+  sdkInstance.setNetwork(ledger);
   if (isDebug) {
-    console.debug("WalletConnect project ID", walletConnectProjectId);
+    sdkInstance.setLogLevel("debug");
   }
+  return sdkInstance;
+}
 
-  const { DAppConnector, HederaJsonRpcMethod, HederaSessionEvent } = await import(
-    "@hashgraph/hedera-wallet-connect"
-  );
-
-  const supportedEvents = [
-    HederaSessionEvent.ChainChanged,
-    HederaSessionEvent.AccountsChanged,
-  ];
-
-  const instance = new DAppConnector(
-    buildMetadata(),
-    resolveLedgerId(),
-    walletConnectProjectId,
-    Object.values(HederaJsonRpcMethod),
-    supportedEvents,
-  );
-
-  await instance.init({ logger: isDebug ? "info" : "error" });
-  connector = instance;
+export async function initWalletSdk(): Promise<HashinalsWalletConnectSDK> {
+  const instance = await getWalletSdk();
+  const ledger = resolveLedgerId();
+  await instance.init(walletConnectProjectId, buildMetadata(), ledger);
   return instance;
 }
 
-export function resetWalletConnector(): void {
-  connector = null;
+export function resetWalletSdk(): void {
+  sdkInstance = null;
 }

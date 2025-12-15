@@ -1,4 +1,12 @@
 import type { ReactNode } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type FormShellProps = {
   title: string;
@@ -9,15 +17,15 @@ type FormShellProps = {
 
 export function FormShell({ title, description, children, actions }: FormShellProps) {
   return (
-    <section className="space-y-6 rounded-2xl border border-holNavy/25 bg-[rgba(18,24,54,0.85)] p-6 shadow-lg backdrop-blur">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
-        {description ? (
-          <p className="text-sm text-holNavy/60">{description}</p>
-        ) : null}
-      </header>
-      <div className="space-y-4">{children}</div>
-      {actions ? <div className="flex justify-end gap-3">{actions}</div> : null}
-    </section>
+    <Card className="space-y-6 rounded-2xl p-6 shadow-lg backdrop-blur">
+      <CardHeader className="space-y-1 p-0">
+        <CardTitle className="text-lg">{title}</CardTitle>
+        {description ? <CardDescription>{description}</CardDescription> : null}
+      </CardHeader>
+      <CardContent className="space-y-4 p-0">{children}</CardContent>
+      {actions ? (
+        <CardFooter className="flex justify-end gap-3 p-0">{actions}</CardFooter>
+      ) : null}
+    </Card>
   );
 }

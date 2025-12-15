@@ -1,11 +1,18 @@
 import { Buffer } from "buffer";
 import {
   AccountId,
-  TopicId,
-  TopicMessageSubmitTransaction,
   TransactionId,
 } from "@hashgraph/sdk";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
+import type { TopicMessageSubmitTransaction } from "@hashgraph/sdk";
+import {
+  buildHcs10ConfirmConnectionTx,
+  buildHcs10OutboundConnectionCreatedRecordTx,
+  buildHcs10OutboundConnectionRequestRecordTx,
+  buildHcs10SendMessageTx,
+  buildHcs10SubmitConnectionRequestTx,
+  buildHcs20SubmitMessageTx,
+} from "@hashgraphonline/standards-sdk";
 import { getHederaClient } from "@/lib/hedera/client";
 import {
   fetchTopicMessages,
@@ -73,8 +80,35 @@ export type ConnectionTopicMessage = {
   raw: Record<string, unknown>;
 };
 
-function encodeJson(payload: Record<string, unknown>): Uint8Array {
-  return Buffer.from(JSON.stringify(payload), "utf-8");
+async function submitMessageTransaction(
+  signer: DAppSigner,
+  transaction: TopicMessageSubmitTransaction,
+  payerAccountId?: string,
+): Promise<SubmittedMessageResult> {
+  const client = getHederaClient();
+
+  if (payerAccountId) {
+    transaction.setTransactionId(
+      TransactionId.generate(AccountId.fromString(payerAccountId)),
+    );
+  }
+
+  await transaction.freezeWith(client);
+  await signer.signTransaction(transaction);
+  const response = await transaction.executeWithSigner(signer);
+  const receipt = await response.getReceiptWithSigner(signer);
+
+  const enriched = receipt as {
+    consensusTimestamp?: { toString: () => string };
+    topicSequenceNumber?: { toNumber: () => number };
+    topicRunningHash?: { toString: (encoding?: string) => string };
+  };
+
+  return {
+    consensusTimestamp: enriched.consensusTimestamp?.toString(),
+    sequenceNumber: enriched.topicSequenceNumber?.toNumber(),
+    runningHash: enriched.topicRunningHash?.toString("hex"),
+  };
 }
 
 function tryParseJson(raw: string): Record<string, unknown> | null {
@@ -119,10 +153,6 @@ function decodeJson(message: MirrorTopicMessage): Record<string, unknown> | null
     }
   }
 
-  console.warn("messaging:decodeJson", {
-    sequenceNumber: message.sequenceNumber,
-    error: "Unable to parse message payload",
-  });
   return null;
 }
 
@@ -297,37 +327,14 @@ async function submitJsonMessage(
   topicId: string,
   payload: Record<string, unknown>,
   memo?: string,
+  payerAccountId?: string,
 ): Promise<SubmittedMessageResult> {
-  const client = getHederaClient();
-  const transaction = new TopicMessageSubmitTransaction()
-    .setTopicId(TopicId.fromString(topicId))
-    .setMessage(encodeJson(payload));
-
-  if (memo) {
-    transaction.setTransactionMemo(memo.slice(0, 100));
-  }
-
-  const accountId = signer.getAccountId?.().toString();
-  if (accountId) {
-    transaction.setTransactionId(TransactionId.generate(AccountId.fromString(accountId)));
-  }
-
-  await transaction.freezeWith(client);
-  await signer.signTransaction(transaction);
-  const response = await transaction.executeWithSigner(signer);
-  const receipt = await response.getReceiptWithSigner(signer);
-
-  const enriched = receipt as {
-    consensusTimestamp?: { toString: () => string };
-    topicSequenceNumber?: { toNumber: () => number };
-    topicRunningHash?: { toString: (encoding?: string) => string };
-  };
-
-  return {
-    consensusTimestamp: enriched.consensusTimestamp?.toString(),
-    sequenceNumber: enriched.topicSequenceNumber?.toNumber(),
-    runningHash: enriched.topicRunningHash?.toString("hex"),
-  };
+  const transaction = buildHcs20SubmitMessageTx({
+    topicId,
+    payload,
+    transactionMemo: memo ? memo.slice(0, 100) : undefined,
+  });
+  return submitMessageTransaction(signer, transaction, payerAccountId);
 }
 
 export async function sendDirectMessage(
@@ -335,7 +342,7 @@ export async function sendDirectMessage(
   topicId: string,
   payload: DirectMessagePayload,
 ): Promise<void> {
-  await submitJsonMessage(signer, topicId, payload);
+  await submitJsonMessage(signer, topicId, payload, undefined, payload.from);
 }
 
 export type ConnectionRequestParams = {
@@ -379,46 +386,29 @@ export async function sendConnectionRequest(
   const operatorId = `${localInboundTopicId}@${localAccountId}`;
 
   const normalizedNote = memo && memo.length > 0 ? memo.slice(0, 280) : undefined;
+  void requestorAlias;
+  void requestorDisplayName;
 
-  const requestPayload: Record<string, unknown> = {
-    p: "hcs-10",
-    op: "connection_request",
-    operator_id: operatorId,
-    requestor_outbound_topic_id: localOutboundTopicId,
-    requestor_account_id: localAccountId,
-    requestor_alias: requestorAlias,
-    requestor_display_name: requestorDisplayName,
-    note: normalizedNote,
-  };
-
-  const inboundResult = await submitJsonMessage(
-    signer,
-    remoteInboundTopicId,
-    requestPayload,
-    "hcs-10:op:3:1",
-  );
+  const inboundTx = buildHcs10SubmitConnectionRequestTx({
+    inboundTopicId: remoteInboundTopicId,
+    operatorId,
+    memo: normalizedNote,
+  });
+  const inboundResult = await submitMessageTransaction(signer, inboundTx, localAccountId);
 
   if (!inboundResult.sequenceNumber) {
     throw new Error("Connection request sequence number unavailable. Mirror may be lagging; retry.");
   }
 
-  const outboundPayload: Record<string, unknown> = {
-    p: "hcs-10",
-    op: "connection_request",
-    operator_id: `${remoteInboundTopicId}@${remoteAccountId}`,
-    outbound_topic_id: localOutboundTopicId,
-    connection_request_id: inboundResult.sequenceNumber,
-    requestor_outbound_topic_id: localOutboundTopicId,
-    target_outbound_topic_id: remoteOutboundTopicId,
-    m: normalizedNote,
-  };
+  void remoteOutboundTopicId;
 
-  await submitJsonMessage(
-    signer,
-    localOutboundTopicId,
-    outboundPayload,
-    "hcs-10:op:3:2",
-  );
+  const outboundTx = buildHcs10OutboundConnectionRequestRecordTx({
+    outboundTopicId: localOutboundTopicId,
+    operatorId: `${remoteInboundTopicId}@${remoteAccountId}`,
+    connectionRequestId: inboundResult.sequenceNumber,
+    memo: normalizedNote,
+  });
+  await submitMessageTransaction(signer, outboundTx, localAccountId);
 
   return {
     requestSequenceNumber: inboundResult.sequenceNumber,
@@ -435,22 +425,19 @@ export async function sendConnectionCreatedNotification(
   connectionId: number,
   memo?: string,
 ): Promise<SubmittedMessageResult> {
-  const basePayload: Record<string, unknown> = {
-    p: "hcs-10",
-    op: "connection_created",
-    connection_topic_id: connectionTopicId,
-    connected_account_id: connectedAccountId,
-    connection_id: connectionId,
-  };
-
-  if (operator) {
-    basePayload.operator_id = `${operator.inboundTopicId}@${operator.accountId}`;
-  }
-  if (memo) {
-    basePayload.m = memo;
+  if (!operator) {
+    throw new Error("Cannot publish connection confirmation without an operator.");
   }
 
-  return submitJsonMessage(signer, remoteInboundTopicId, basePayload, "hcs-10:op:4:1");
+  const tx = buildHcs10ConfirmConnectionTx({
+    inboundTopicId: remoteInboundTopicId,
+    connectionTopicId,
+    connectedAccountId,
+    operatorId: `${operator.inboundTopicId}@${operator.accountId}`,
+    connectionId,
+    memo,
+  });
+  return submitMessageTransaction(signer, tx, operator.accountId);
 }
 
 export type OutboundConnectionRecordParams = {
@@ -476,27 +463,23 @@ export async function recordOutboundConnectionCreated(
     requestSequenceNumber,
     confirmationSequenceNumber,
     requestorOutboundTopicId,
-    connectedAccountId,
     memo,
   } = params;
-
-  const payload: Record<string, unknown> = {
-    p: "hcs-10",
-    op: "connection_created",
-    connection_topic_id: connectionTopicId,
-    outbound_topic_id: outboundTopicId,
-    connection_request_id: requestSequenceNumber,
-    confirmed_request_id: confirmationSequenceNumber,
-    requestor_outbound_topic_id: requestorOutboundTopicId,
-    operator_id: `${operator.inboundTopicId}@${operator.accountId}`,
-    connected_account_id: connectedAccountId,
-  };
-
-  if (memo) {
-    payload.m = memo;
+  if (!confirmationSequenceNumber || !requestorOutboundTopicId) {
+    return;
   }
 
-  await submitJsonMessage(signer, outboundTopicId, payload, "hcs-10:op:4:2");
+  const tx = buildHcs10OutboundConnectionCreatedRecordTx({
+    outboundTopicId,
+    requestorOutboundTopicId,
+    connectionTopicId,
+    confirmedRequestId: confirmationSequenceNumber,
+    connectionRequestId: requestSequenceNumber,
+    operatorId: `${operator.inboundTopicId}@${operator.accountId}`,
+    memo,
+  });
+
+  await submitMessageTransaction(signer, tx, operator.accountId);
 }
 
 export async function sendConnectionMessage(
@@ -506,20 +489,17 @@ export async function sendConnectionMessage(
   data: string,
   memo?: string,
 ): Promise<void> {
-  const payload: Record<string, unknown> = {
-    p: "hcs-10",
-    op: "message",
+  if (!operator) {
+    throw new Error("Cannot publish connection message without an operator.");
+  }
+
+  const tx = buildHcs10SendMessageTx({
+    connectionTopicId: topicId,
+    operatorId: `${operator.inboundTopicId}@${operator.accountId}`,
     data,
-  };
-
-  if (operator) {
-    payload.operator_id = `${operator.inboundTopicId}@${operator.accountId}`;
-  }
-  if (memo) {
-    payload.m = memo;
-  }
-
-  await submitJsonMessage(signer, topicId, payload);
+    memo,
+  });
+  await submitMessageTransaction(signer, tx, operator.accountId);
 }
 
 export { submitJsonMessage };

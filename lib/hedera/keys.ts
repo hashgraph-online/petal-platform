@@ -1,6 +1,6 @@
 import { Buffer } from "buffer";
 import { Key, PublicKey } from "@hashgraph/sdk";
-import type { DAppSigner } from "@hashgraph/hedera-wallet-connect";
+import type { DAppSigner } from "@/lib/hedera/wallet-types";
 import { lookupAccount } from "@/lib/hedera/mirror";
 
 type MirrorKey = {
@@ -111,7 +111,7 @@ export async function getSignerPublicKey(
       resolved = parseUnknownKey(rawKey);
     } catch (error) {
       if (!(error instanceof Error) || !/Method not implemented/i.test(error.message)) {
-        console.warn("hedera:getSignerPublicKey:getAccountKey", error);
+        void error;
       }
     }
   }
@@ -124,7 +124,7 @@ export async function getSignerPublicKey(
         resolved = publicKeyFromMirrorKey(account?.key);
       }
     } catch (error) {
-      console.warn("hedera:getSignerPublicKey:lookupAccount", error);
+      void error;
     }
   }
 
@@ -175,7 +175,7 @@ export function publicKeyFromMirrorKey(entry: MirrorKey | null | undefined): Pub
       return parsed;
     }
   } catch (error) {
-    console.warn("hedera:publicKeyFromMirrorKey", error);
+    void error;
   }
 
   const hex = isHex ? normalized : Buffer.from(sanitized, "base64").toString("hex");

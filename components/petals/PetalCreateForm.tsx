@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { z } from "zod";
 import { Spinner } from "@/components/ui/Spinner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/providers/toast-provider";
+import { getLogger } from "@/lib/logger";
 
 const createPetalSchema = z.object({
   alias: z
@@ -39,6 +42,7 @@ type PetalCreateFormProps = {
 };
 
 export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: PetalCreateFormProps) {
+  const logger = getLogger("petal-create-form");
   const [alias, setAlias] = useState("");
   const [derivedPublicKey, setDerivedPublicKey] = useState(basePublicKey ?? "");
   const [initialBalance, setInitialBalance] = useState<string>("1");
@@ -46,6 +50,7 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
   const [status, setStatus] = useState<SubmitState>("idle");
   const [error, setError] = useState<string | null>(null);
   const { pushToast } = useToast();
+  const walletDisabled = !baseAccountId;
 
   useEffect(() => {
     setDerivedPublicKey(basePublicKey ?? "");
@@ -54,6 +59,12 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    if (walletDisabled) {
+      const message = "Connect your wallet before creating a petal.";
+      setError(message);
+      pushToast({ title: "Wallet required", description: message, variant: "error" });
+      return;
+    }
 
     const parsedInitial = Number.parseFloat(initialBalance);
     const parsedAssociations = maxAssociations
@@ -83,7 +94,7 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
       setMaxAssociations("0");
       pushToast({ title: "Petal created", variant: "success" });
     } catch (err) {
-      console.error("Petal creation failed", err);
+      logger.error("Petal creation failed", err);
       setError(err instanceof Error ? err.message : "Failed to create petal");
       pushToast({
         title: "Petal creation failed",
@@ -95,68 +106,90 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
     }
   };
 
+  const handleAliasChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setAlias(event.target.value);
+    },
+    [],
+  );
+
+  const handleInitialBalanceChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setInitialBalance(event.target.value);
+    },
+    [],
+  );
+
+  const handleMaxAssociationsChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setMaxAssociations(event.target.value);
+    },
+    [],
+  );
+
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-holNavy">Petal alias</span>
-          <input
+          <span className="text-sm font-medium text-foreground">Petal alias</span>
+          <Input
             type="text"
             value={alias}
-            onChange={(event) => setAlias(event.target.value)}
+            onChange={handleAliasChange}
             placeholder="project-alice"
-            className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+            disabled={walletDisabled}
           />
-          <span className="text-xs text-holNavy/60">
+          <span className="text-xs text-muted-foreground">
             Lowercase alias stored in the petal memo and profile registry.
           </span>
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-holNavy">Initial balance (ℏ)</span>
-          <input
+          <span className="text-sm font-medium text-foreground">Initial balance (ℏ)</span>
+          <Input
             type="number"
             min="0"
             step="0.1"
             value={initialBalance}
-            onChange={(event) => setInitialBalance(event.target.value)}
-            className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+            onChange={handleInitialBalanceChange}
+            disabled={walletDisabled}
           />
-          <span className="text-xs text-holNavy/60">
+          <span className="text-xs text-muted-foreground">
             Seed amount transferred from the base account during creation.
           </span>
         </label>
       </div>
       <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-holNavy">Base account public key</span>
-        <input
+        <span className="text-sm font-medium text-foreground">Base account public key</span>
+        <Input
           type="text"
           value={derivedPublicKey}
           readOnly
-          className="w-full rounded-md border border-holNavy/20 bg-holBlue/10 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+          className="bg-muted"
+          disabled={walletDisabled}
         />
-        <span className="text-xs text-holNavy/60">
+        <span className="text-xs text-muted-foreground">
           Automatically sourced from the connected base account for HCS-15 compliance.
         </span>
       </label>
       <label className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-holNavy">
+        <span className="text-sm font-medium text-foreground">
           Max automatic token associations
         </span>
-        <input
+        <Input
           type="number"
           min="0"
           max="50"
           value={maxAssociations}
-          onChange={(event) => setMaxAssociations(event.target.value)}
-          className="w-full rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
+          onChange={handleMaxAssociationsChange}
+          disabled={walletDisabled}
         />
-        <span className="text-xs text-holNavy/60">
+        <span className="text-xs text-muted-foreground">
           Optional limit for automatic token associations on the new account.
         </span>
       </label>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {baseAccountId ? (
-        <p className="text-xs text-holNavy/60">
+        <p className="text-xs text-muted-foreground">
           Base account: <span className="font-medium">{baseAccountId}</span>
         </p>
       ) : (
@@ -164,10 +197,10 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
           Connect your wallet to select the base HCS-15 account before creating petals.
         </p>
       )}
-      <button
+      <Button
         type="submit"
-        disabled={status === "submitting" || !derivedPublicKey}
-        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 transition hover:shadow-holPurple/35 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={walletDisabled || status === "submitting" || !derivedPublicKey}
+        className="rounded-full bg-gradient-to-r from-holBlue to-holPurple px-5 py-2 font-semibold text-white shadow-lg shadow-holBlue/25 ring-1 ring-holBlue/40 hover:shadow-holPurple/35"
       >
         {status === "submitting" ? (
           <span className="flex items-center gap-2">
@@ -176,7 +209,7 @@ export function PetalCreateForm({ onCreate, baseAccountId, basePublicKey }: Peta
         ) : (
           "Create petal"
         )}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -29,7 +29,7 @@ export function AliasSearchPanel({ onProfileResolved }: AliasSearchPanelProps) {
     listRecentProfiles(8)
       .then(setRecent)
       .catch((err) => {
-        console.warn("Failed to load recent profiles", err);
+        void err;
       });
   }, []);
 
@@ -66,7 +66,6 @@ export function AliasSearchPanel({ onProfileResolved }: AliasSearchPanelProps) {
         setError("Profile not found in registry");
       }
     } catch (err) {
-      console.error("Alias search failed", err);
       setError(err instanceof Error ? err.message : "Lookup failed");
       setResult(null);
       onProfileResolved?.(null);

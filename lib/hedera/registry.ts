@@ -1,6 +1,5 @@
 import { Buffer } from "buffer";
-import { getTopicId } from "@/config/topics";
-import { env, isDebug, isDevelopment } from "@/config/env";
+import { tryGetTopicId } from "@/config/topics";
 import {
   fetchTopicMessages,
   type MirrorTopicMessage,
@@ -54,10 +53,7 @@ function readCache<T>(key: string): T | null {
       return null;
     }
     return parsed.value;
-  } catch (error) {
-    if (isDevelopment) {
-      console.warn("Failed to read registry cache", key, error);
-    }
+  } catch {
     return null;
   }
 }
@@ -77,9 +73,7 @@ function writeCache<T>(key: string, value: T, ttlMs = DEFAULT_CACHE_TTL_MS): voi
       JSON.stringify(entry),
     );
   } catch (error) {
-    if (isDevelopment) {
-      console.warn("Failed to write registry cache", key, error);
-    }
+    void error;
   }
 }
 
@@ -92,9 +86,7 @@ function decodeMessagePayload(message?: string): Record<string, unknown> | null 
     const jsonString = decodeBase64(message);
     return JSON.parse(jsonString) as Record<string, unknown>;
   } catch (error) {
-    if (isDevelopment) {
-      console.warn("Failed to decode registry message", error);
-    }
+    void error;
     return null;
   }
 }
@@ -168,16 +160,11 @@ function extractProfileFromMessage(
 }
 
 async function fetchRegistryMessages(limit = 100): Promise<MirrorTopicMessage[]> {
-  const topicId = getTopicId("profileRegistry");
-  const messages = await fetchTopicMessages(topicId, { limit, order: "desc" });
-  if (isDebug) {
-    console.debug(
-      "registry:fetchTopicMessages",
-      topicId,
-      `limit=${limit}`,
-      `mirror=${env.NEXT_PUBLIC_MIRROR_NODE_URL}`,
-    );
+  const topicId = tryGetTopicId("profileRegistry");
+  if (!topicId) {
+    return [];
   }
+  const messages = await fetchTopicMessages(topicId, { limit, order: "desc" });
   return messages;
 }
 
@@ -204,9 +191,6 @@ export async function listRecentProfiles(limit = 20): Promise<RegistryProfile[]>
   const cacheKey = RECENT_CACHE_KEY(limit);
   const cached = readCache<RegistryProfile[]>(cacheKey);
   if (cached) {
-    if (isDebug) {
-      console.debug("registry:listRecentProfiles cache-hit", { limit });
-    }
     return cached;
   }
 
@@ -228,9 +212,6 @@ export async function searchProfileByAlias(
   const cacheKey = ALIAS_CACHE_KEY(normalized);
   const cached = readCache<RegistryProfile | null>(cacheKey);
   if (cached) {
-    if (isDebug) {
-      console.debug("registry:searchProfileByAlias cache-hit", normalized);
-    }
     return cached;
   }
 
@@ -238,11 +219,6 @@ export async function searchProfileByAlias(
   const match = profiles.find((profile) => profile.alias === normalized) ?? null;
 
   writeCache(cacheKey, match);
-  if (isDebug) {
-    console.debug("registry:searchProfileByAlias lookup", normalized, {
-      found: Boolean(match),
-    });
-  }
   return match;
 }
 
@@ -257,9 +233,6 @@ export async function fetchLatestProfileForAccount(
   const cacheKey = ACCOUNT_CACHE_KEY(normalized);
   const cached = readCache<RegistryProfile | null>(cacheKey);
   if (cached) {
-    if (isDebug) {
-      console.debug("registry:fetchLatestProfileForAccount cache-hit", normalized);
-    }
     return cached;
   }
 
@@ -268,11 +241,6 @@ export async function fetchLatestProfileForAccount(
   const match = profiles.find((profile) => profile.accountId === normalized) ?? null;
 
   writeCache(cacheKey, match);
-  if (isDebug) {
-    console.debug("registry:fetchLatestProfileForAccount lookup", normalized, {
-      found: Boolean(match),
-    });
-  }
   return match;
 }
 
@@ -285,7 +253,6 @@ export function clearRegistryCache(): void {
     .filter((key) => key.startsWith(`${CACHE_NAMESPACE}:`))
     .forEach((key) => window.localStorage.removeItem(key));
 }
-
 
 export function primeRegistryCache(profile: RegistryProfile): void {
   const normalizedAccount = profile.accountId.trim();
