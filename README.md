@@ -69,3 +69,7 @@ CI/CD pipelines should execute `lint`, `test`, and `build` to gate merges.
 6. **Monitoring** – Watch for console errors around environment validation; the app logs “Invalid environment configuration” if keys are missing.
 
 For troubleshooting Hedera interactions, enable the in-app debug toggle to inspect cached payloads and mirror responses.
+
+## Cloudflare
+
+For Cloudflare Workers deployment via Wrangler/OpenNext, see `petal-platform/docs/deploy-cloudflare.md`.

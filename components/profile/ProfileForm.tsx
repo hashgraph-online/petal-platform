@@ -74,14 +74,12 @@ export function ProfileForm({
   });
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
     setValues({
       alias: initialValues?.alias ?? "",
       displayName: initialValues?.displayName ?? "",
       avatarUrl: initialValues?.avatarUrl ?? "",
       bio: initialValues?.bio ?? "",
     });
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [initialValues?.alias, initialValues?.displayName, initialValues?.avatarUrl, initialValues?.bio]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<SubmitState>("idle");

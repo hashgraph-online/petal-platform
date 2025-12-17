@@ -31,14 +31,12 @@ export function CacheToolsButton() {
   const hasEntries = entries.length > 0;
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
     if (!open) {
       return;
     }
     const snapshot = collectStorageSnapshot();
     setEntries(snapshot);
     setReferenceNow(Date.now());
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [open]);
 
   const totals = useMemo(() => {

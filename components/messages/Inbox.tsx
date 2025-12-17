@@ -303,7 +303,6 @@ export function Inbox({
 
   useEffect(() => {
     if (!topicId || !accountId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEvents([]);
       if (unsubscribeRef.current) {
         unsubscribeRef.current();

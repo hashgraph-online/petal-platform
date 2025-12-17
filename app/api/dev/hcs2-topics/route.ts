@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -25,6 +23,8 @@ type Network = z.infer<typeof requestSchema>["network"];
 type Topics = z.infer<typeof requestSchema>["topics"];
 
 type EnvUpdate = { key: string; value: string };
+type FsModule = typeof import("node:fs");
+type PathModule = typeof import("node:path");
 
 function toNetworkPrefix(network: Network): "MAINNET" | "TESTNET" {
   return network === "mainnet" ? "MAINNET" : "TESTNET";
@@ -73,7 +73,7 @@ function buildEnvUpdates(network: Network, topics: Topics): EnvUpdate[] {
   return updates;
 }
 
-function resolveTargetPaths(): string[] {
+function resolveTargetPaths(fs: FsModule, path: PathModule): string[] {
   const root = process.cwd();
   const envPath = path.join(root, ".env");
   const envLocalPath = path.join(root, ".env.local");
@@ -113,7 +113,9 @@ export async function POST(request: Request) {
   }
 
   const updates = buildEnvUpdates(parsed.data.network, parsed.data.topics);
-  const paths = resolveTargetPaths();
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const paths = resolveTargetPaths(fs, path);
 
   for (const targetPath of paths) {
     const existingFile = fs.existsSync(targetPath)

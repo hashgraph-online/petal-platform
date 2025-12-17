@@ -9,9 +9,9 @@ import {
 } from "react";
 import {
   listRecentProfiles,
-  searchProfileByAlias,
   type RegistryProfile,
 } from "@/lib/hedera/registry";
+import { resolveProfileByIdentifier, searchRegistryProfiles } from "@/lib/hedera/profile-lookup";
 import { sendConnectionRequest, sendConnectionMessage } from "@/lib/hedera/messaging";
 import type { ConnectionRecord } from "@/lib/hedera/connections";
 import type { DAppSigner } from "@/lib/hedera/wallet-types";
@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/providers/toast-provider";
 import { getLogger } from "@/lib/logger";
 import { AuthRequired } from "@/components/auth/auth-required";
+import { useWallet } from "@/providers/wallet-provider";
 
 type ComposeFormProps = {
   signer: DAppSigner | null;
@@ -47,6 +48,7 @@ export function ComposeForm({
   preferredConnectionId,
 }: ComposeFormProps) {
   const logger = getLogger("compose-form");
+  const { network } = useWallet();
   const [recipient, setRecipient] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<ComposeState>("idle");
@@ -59,7 +61,9 @@ export function ComposeForm({
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>(
     connections[0]?.connectionTopicId ?? "",
   );
-  const [suggestions, setSuggestions] = useState<RegistryProfile[]>([]);
+  const [cachedProfiles, setCachedProfiles] = useState<RegistryProfile[]>([]);
+  const [searchResults, setSearchResults] = useState<RegistryProfile[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const { pushToast } = useToast();
@@ -117,7 +121,7 @@ export function ComposeForm({
     listRecentProfiles(200)
       .then((profiles) => {
         if (!cancelled) {
-          setSuggestions(profiles.filter((profile) => Boolean(profile.alias)));
+          setCachedProfiles(profiles.filter((profile) => Boolean(profile.alias)));
         }
       })
       .catch((error) => {
@@ -131,13 +135,13 @@ export function ComposeForm({
 
   const suggestionLookup = useMemo(() => {
     const map = new Map<string, RegistryProfile>();
-    for (const profile of suggestions) {
+    for (const profile of cachedProfiles) {
       if (profile.alias) {
         map.set(profile.alias.toLowerCase(), profile);
       }
     }
     return map;
-  }, [suggestions]);
+  }, [cachedProfiles]);
 
   useEffect(() => {
     if (mode === "connection" && connections.length === 0) {
@@ -154,6 +158,8 @@ export function ComposeForm({
       setResolvedProfile(null);
       setStatus("idle");
       setStatusMessage(null);
+      setSearchResults([]);
+      setSearchLoading(false);
       return;
     }
 
@@ -163,6 +169,8 @@ export function ComposeForm({
       setResolvedProfile(null);
       setStatus("idle");
       setStatusMessage(null);
+      setSearchResults([]);
+      setSearchLoading(false);
       return;
     }
 
@@ -172,16 +180,19 @@ export function ComposeForm({
     const cachedMatch = suggestionLookup.get(normalized);
     if (cachedMatch) {
       setResolvedProfile(cachedMatch);
+      if (!cachedMatch.inboundTopicId) {
+        setStatusMessage("Profile found, but no inbound topic is published yet.");
+      }
       setStatus("idle");
       return () => {
         cancelled = true;
       };
     }
 
-    if (normalized.length < 3) {
+    if (normalized.length < 2) {
       setResolvedProfile(null);
       setStatus("idle");
-      setStatusMessage("Enter at least 3 characters to search the registry");
+      setStatusMessage("Enter at least 2 characters to search the registry");
       return () => {
         cancelled = true;
       };
@@ -190,12 +201,14 @@ export function ComposeForm({
     setStatus("resolving");
 
     const timer = setTimeout(() => {
-      searchProfileByAlias(normalized)
+      resolveProfileByIdentifier(normalized, { network })
         .then((profile) => {
           if (cancelled) return;
           setResolvedProfile(profile);
           if (!profile) {
-            setStatusMessage("Profile not found in recent registry snapshot");
+            setStatusMessage("Profile not found. Ask them to publish their HCS-11 profile.");
+          } else if (!profile.inboundTopicId) {
+            setStatusMessage("Profile found, but no inbound topic is published yet.");
           }
         })
         .catch((error) => {
@@ -215,39 +228,67 @@ export function ComposeForm({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [recipient, suggestionLookup, mode, logger]);
+  }, [recipient, suggestionLookup, mode, logger, network]);
+
+  useEffect(() => {
+    if (mode !== "direct" || !isSuggestionsOpen) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    const normalized = recipient.trim().toLowerCase();
+    if (!normalized || normalized.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchLoading(true);
+
+    const timer = window.setTimeout(() => {
+      searchRegistryProfiles(normalized, { network, limit: 8 })
+        .then((results) => {
+          if (!cancelled) {
+            setSearchResults(results);
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            logger.warn("Profile search failed", error);
+            setSearchResults([]);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setSearchLoading(false);
+          }
+        });
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isSuggestionsOpen, mode, network, recipient, logger]);
 
   const filteredSuggestions = useMemo(() => {
     const normalized = recipient.trim().toLowerCase();
     const recentSet = new Set<string>(recentContacts.map((item) => item.toLowerCase()));
 
-    const baseSuggestions = suggestions.filter(
-      (profile) => profile.alias && profile.inboundTopicId,
-    );
-
     if (!normalized) {
       const recentMatches = Array.from(recentSet)
         .map((alias) => suggestionLookup.get(alias) ?? null)
         .filter((profile): profile is RegistryProfile => Boolean(profile));
-      const filler = baseSuggestions.filter(
+      const filler = cachedProfiles.filter(
         (profile) => profile.alias && !recentSet.has(profile.alias.toLowerCase()),
       );
       return [...recentMatches, ...filler].slice(0, 8);
     }
 
-    return baseSuggestions
-      .filter((profile) => {
-        const alias = profile.alias?.toLowerCase() ?? "";
-        const display = profile.displayName?.toLowerCase() ?? "";
-        const account = profile.accountId.toLowerCase();
-        return (
-          alias.includes(normalized) ||
-          display.includes(normalized) ||
-          account.includes(normalized)
-        );
-      })
-      .slice(0, 8);
-  }, [recipient, suggestions, suggestionLookup, recentContacts]);
+    return searchResults;
+  }, [cachedProfiles, recentContacts, recipient, searchResults, suggestionLookup]);
 
   useEffect(() => {
     if (!isSuggestionsOpen || filteredSuggestions.length === 0) {
@@ -390,7 +431,11 @@ export function ComposeForm({
     const alias = profile.alias.toLowerCase();
     setRecipient(alias);
     setResolvedProfile(profile);
-    setStatusMessage(null);
+    if (!profile.inboundTopicId) {
+      setStatusMessage("Profile selected, but no inbound topic is published yet.");
+    } else {
+      setStatusMessage(null);
+    }
     updateRecentContacts(alias);
     setIsSuggestionsOpen(false);
   }
@@ -412,7 +457,11 @@ export function ComposeForm({
       const selected = filteredSuggestions[activeSuggestionIndex];
       if (selected) {
         event.preventDefault();
-        handleSelectProfile(selected);
+        if (selected.inboundTopicId) {
+          handleSelectProfile(selected);
+        } else {
+          setStatusMessage("That profile is missing an inbound topic.");
+        }
       }
     } else if (event.key === "Escape") {
       setIsSuggestionsOpen(false);
@@ -487,102 +536,128 @@ export function ComposeForm({
           </Button>
         </div>
 
-      {mode === "direct" ? (
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-foreground">Recipient alias</label>
-          <div className="relative">
-            <Input
-              type="text"
-              value={recipient}
-              onChange={handleRecipientChange}
-              onFocus={handleRecipientFocus}
-              onBlur={handleRecipientBlur}
-              onKeyDown={handleKeyDown}
-              placeholder="alice-agent"
-              autoComplete="off"
-              disabled={walletDisabled}
-            />
-            {isSuggestionsOpen && filteredSuggestions.length > 0 ? (
-              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg backdrop-blur">
-                <ul className="max-h-64 divide-y divide-border overflow-auto text-sm">
-                  {filteredSuggestions.map((profile, index) => (
-                    <li key={profile.accountId}>
-                      <button
-                        type="button"
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          handleSelectProfile(profile);
-                        }}
-                        className={`flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition ${
-                          index === activeSuggestionIndex
-                            ? "bg-muted"
-                            : "hover:bg-muted"
-                        }`}
-                      >
-                        <span className="font-medium text-foreground">
-                          {profile.displayName ?? profile.alias}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {profile.alias ? `@${profile.alias}` : profile.accountId}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {isSuggestionsOpen && filteredSuggestions.length === 0 ? (
-              <div className="absolute z-10 mt-1 w-full rounded-lg border border-dashed border-border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-lg backdrop-blur">
-                {recipient.trim()
-                  ? "No matching profiles in the recent registry snapshot"
-                  : "No cached profiles yet. Publish profiles to populate suggestions."}
-              </div>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {recentContacts.map((alias) => (
-              <Button
-                key={alias}
-                type="button"
-                onClick={() => handleUseRecent(alias)}
-                variant="outline"
-                size="sm"
-                className="rounded-full px-3 py-1 text-xs"
+        {mode === "direct" ? (
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-foreground">Recipient alias</label>
+            <div className="relative">
+              <Input
+                type="text"
+                value={recipient}
+                onChange={handleRecipientChange}
+                onFocus={handleRecipientFocus}
+                onBlur={handleRecipientBlur}
+                onKeyDown={handleKeyDown}
+                placeholder="alice-agent"
+                autoComplete="off"
                 disabled={walletDisabled}
-              >
-                @{alias}
-              </Button>
-            ))}
+              />
+              {isSuggestionsOpen && (searchLoading || filteredSuggestions.length > 0) ? (
+                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg backdrop-blur">
+                  <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground">
+                    <span>{searchLoading ? "Searching registry…" : "Suggestions"}</span>
+                    <span className="font-mono">{network}</span>
+                  </div>
+                  <ul className="max-h-64 divide-y divide-border overflow-auto text-sm">
+                    {filteredSuggestions.map((profile, index) => (
+                      <li key={profile.accountId}>
+                        <button
+                          type="button"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            handleSelectProfile(profile);
+                          }}
+                          disabled={!profile.inboundTopicId}
+                          className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            index === activeSuggestionIndex ? "bg-muted" : "hover:bg-muted"
+                          }`}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-foreground">
+                              {profile.displayName ?? profile.alias ?? profile.accountId}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {profile.alias ? `@${profile.alias}` : profile.accountId}
+                            </span>
+                          </span>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                              profile.inboundTopicId
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100"
+                                : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-100"
+                            }`}
+                          >
+                            {profile.inboundTopicId ? "Ready" : "No inbox"}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                    {!searchLoading && filteredSuggestions.length === 0 ? (
+                      <li className="px-3 py-3 text-xs text-muted-foreground">
+                        No matches yet. Try typing a longer alias.
+                      </li>
+                    ) : null}
+                  </ul>
+                </div>
+              ) : null}
+              {isSuggestionsOpen && !searchLoading && filteredSuggestions.length === 0 ? (
+                <div className="absolute z-10 mt-1 w-full rounded-lg border border-dashed border-border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-lg backdrop-blur">
+                  {recipient.trim()
+                    ? "No matching profiles found."
+                    : "No cached profiles yet. Publish profiles to populate suggestions."}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {recentContacts.map((alias) => (
+                <Button
+                  key={alias}
+                  type="button"
+                  onClick={() => handleUseRecent(alias)}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full px-3 py-1 text-xs"
+                  disabled={walletDisabled}
+                >
+                  @{alias}
+                </Button>
+              ))}
+            </div>
+            {resolvedProfile ? (
+              <p className="text-xs text-muted-foreground">
+                Resolved:{" "}
+                {resolvedProfile.displayName ?? resolvedProfile.alias ?? resolvedProfile.accountId}
+                {resolvedProfile.alias ? ` · @${resolvedProfile.alias}` : ""}
+              </p>
+            ) : null}
           </div>
-          {resolvedProfile ? (
-            <p className="text-xs text-muted-foreground">
-              Resolved: {resolvedProfile.displayName ?? resolvedProfile.alias ?? resolvedProfile.accountId}
-              {resolvedProfile.alias ? ` · @${resolvedProfile.alias}` : ""}
-            </p>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-foreground">Connection channel</label>
-          <select
-            value={selectedConnectionId}
-            onChange={handleConnectionChange}
-            disabled={walletDisabled}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
-          >
-            {connections.map((connection) => (
-              <option key={connection.connectionTopicId} value={connection.connectionTopicId}>
-                {connection.contactDisplayName ?? connection.contactAlias ?? connection.contactAccountId} · {connection.connectionTopicId}
-              </option>
-            ))}
-          </select>
-          {selectedConnection ? (
-            <p className="text-xs text-muted-foreground">
-              Chat with {selectedConnection.contactDisplayName ?? selectedConnection.contactAlias ?? selectedConnection.contactAccountId}
-            </p>
-          ) : null}
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-foreground">Connection channel</label>
+            <select
+              value={selectedConnectionId}
+              onChange={handleConnectionChange}
+              disabled={walletDisabled}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+            >
+              {connections.map((connection) => (
+                <option key={connection.connectionTopicId} value={connection.connectionTopicId}>
+                  {connection.contactDisplayName ??
+                    connection.contactAlias ??
+                    connection.contactAccountId}{" "}
+                  · {connection.connectionTopicId}
+                </option>
+              ))}
+            </select>
+            {selectedConnection ? (
+              <p className="text-xs text-muted-foreground">
+                Chat with{" "}
+                {selectedConnection.contactDisplayName ??
+                  selectedConnection.contactAlias ??
+                  selectedConnection.contactAccountId}
+              </p>
+            ) : null}
+          </div>
+        )}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-foreground">
           {mode === "direct" ? "Connection note (optional)" : "Message"}
@@ -622,13 +697,13 @@ export function ComposeForm({
           "Send message"
         )}
       </Button>
-        {!isReady ? (
-          <p className="text-xs text-muted-foreground">
-            {mode === "direct"
-              ? "Resolve a contact and ensure your identity has published inbound & outbound topics."
-              : "Select a connection channel to start chatting."}
-          </p>
-        ) : null}
+      {!isReady ? (
+        <p className="text-xs text-muted-foreground">
+          {mode === "direct"
+            ? "Resolve a contact and ensure your identity has published inbound & outbound topics."
+            : "Select a connection channel to start chatting."}
+        </p>
+      ) : null}
       </form>
     </AuthRequired>
   );

@@ -22,7 +22,10 @@ export type LoadedProfileDocument = {
   retrievedAt: string;
 };
 
-function resolveStandardsNetwork(): "mainnet" | "testnet" {
+function resolveStandardsNetwork(network?: "mainnet" | "testnet"): "mainnet" | "testnet" {
+  if (network) {
+    return network;
+  }
   return env.HEDERA_NETWORK === "mainnet" ? "mainnet" : "testnet";
 }
 
@@ -60,7 +63,10 @@ function isProfilePayload(value: unknown): value is ProfilePayload {
   );
 }
 
-async function loadProfileViaHrl(reference: string): Promise<{
+async function loadProfileViaHrl(
+  reference: string,
+  network?: "mainnet" | "testnet",
+): Promise<{
   topicId: string;
   mimeType: string;
   rawJson: string;
@@ -68,7 +74,7 @@ async function loadProfileViaHrl(reference: string): Promise<{
 }> {
   const resolver = new HRLResolver("warn");
   const result = await resolver.resolve(reference, {
-    network: resolveStandardsNetwork(),
+    network: resolveStandardsNetwork(network),
     returnRaw: true,
   });
 
@@ -137,13 +143,16 @@ async function loadProfileDocumentWithMemo(
   };
 }
 
-export async function loadProfileDocument(reference: string): Promise<LoadedProfileDocument> {
+export async function loadProfileDocument(
+  reference: string,
+  options: { network?: "mainnet" | "testnet" } = {},
+): Promise<LoadedProfileDocument> {
   const topicId = resolveProfileTopicId(reference);
   if (!topicId) {
     throw new Error("Invalid HCS-1 profile reference");
   }
 
-  const resolved = await loadProfileViaHrl(reference);
+  const resolved = await loadProfileViaHrl(reference, options.network);
   return loadProfileDocumentWithMemo(
     reference,
     topicId,

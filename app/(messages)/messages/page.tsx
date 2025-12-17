@@ -103,7 +103,6 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!connectionsStorageAccount) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setConnections([]);
       return;
     }
@@ -165,7 +164,6 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!resolvedInboundTopicId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSidebarInboxEvents([]);
       return;
     }
@@ -203,7 +201,6 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!activeIdentity?.accountId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBaseInboundTopicId(null);
       setBaseOutboundTopicId(null);
       setBaseAlias(null);
@@ -271,8 +268,6 @@ export default function MessagesPage() {
     };
   }, [activeIdentity, petals, updatePetal]);
 
-
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!preferredConnectionId) {
       setThreadMessages([]);
@@ -329,7 +324,6 @@ export default function MessagesPage() {
       unsubscribe?.();
     };
   }, [preferredConnectionId, connections, logger]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleConnectionCreated = useCallback(
     (record: ConnectionRecord) => {

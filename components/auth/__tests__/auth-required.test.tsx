@@ -14,9 +14,10 @@ describe("AuthRequired", () => {
       </AuthRequired>,
     );
 
-    expect(screen.getByText("AUTHENTICATION_REQUIRED")).toBeInTheDocument();
     expect(screen.getByText("Wallet required")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mock Connect" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mock Connect" }),
+    ).toBeInTheDocument();
   });
 
   it("renders children without overlay when enabled", () => {
@@ -27,7 +28,5 @@ describe("AuthRequired", () => {
     );
 
     expect(screen.getByText("Form content")).toBeInTheDocument();
-    expect(screen.queryByText("AUTHENTICATION_REQUIRED")).toBeNull();
   });
 });
-

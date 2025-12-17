@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  listRecentProfiles,
-  searchProfileByAlias,
-  type RegistryProfile,
-} from "@/lib/hedera/registry";
+import { listRecentProfiles, type RegistryProfile } from "@/lib/hedera/registry";
 import { topicExplorerUrl } from "@/config/topics";
+import { resolveProfileByIdentifier, searchRegistryProfiles } from "@/lib/hedera/profile-lookup";
+import { useWallet } from "@/providers/wallet-provider";
 
 function truncate(text: string, length = 32): string {
   return text.length > length ? `${text.slice(0, length - 1)}…` : text;
@@ -19,11 +17,15 @@ type AliasSearchPanelProps = {
 };
 
 export function AliasSearchPanel({ onProfileResolved }: AliasSearchPanelProps) {
+  const { network } = useWallet();
   const [query, setQuery] = useState("");
   const [state, setState] = useState<SearchState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RegistryProfile | null>(null);
   const [recent, setRecent] = useState<RegistryProfile[]>([]);
+  const [suggestions, setSuggestions] = useState<RegistryProfile[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   useEffect(() => {
     listRecentProfiles(8)
@@ -32,6 +34,54 @@ export function AliasSearchPanel({ onProfileResolved }: AliasSearchPanelProps) {
         void err;
       });
   }, []);
+
+  useEffect(() => {
+    if (!suggestionsOpen) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) {
+      setSuggestions(recent);
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    if (normalized.length < 2) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSuggestionsLoading(true);
+
+    const timer = window.setTimeout(() => {
+      searchRegistryProfiles(normalized, { network, limit: 8 })
+        .then((profiles) => {
+          if (!cancelled) {
+            setSuggestions(profiles);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setSuggestionsLoading(false);
+          }
+        });
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [network, query, recent, suggestionsOpen]);
 
   const hasResult = Boolean(result);
 
@@ -59,11 +109,13 @@ export function AliasSearchPanel({ onProfileResolved }: AliasSearchPanelProps) {
     setError(null);
 
     try {
-      const profile = await searchProfileByAlias(query.trim());
+      const profile = await resolveProfileByIdentifier(query.trim(), { network });
       setResult(profile);
       onProfileResolved?.(profile);
       if (!profile) {
         setError("Profile not found in registry");
+      } else if (!profile.inboundTopicId) {
+        setError("Profile found, but no inbound topic is published yet.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lookup failed");
@@ -81,16 +133,35 @@ export function AliasSearchPanel({ onProfileResolved }: AliasSearchPanelProps) {
     onProfileResolved?.(profile);
   }
 
+  function handleSuggestionPick(profile: RegistryProfile) {
+    setQuery(profile.alias ?? profile.accountId);
+    setResult(profile);
+    setSuggestionsOpen(false);
+    if (!profile.inboundTopicId) {
+      setError("Profile found, but no inbound topic is published yet.");
+    } else {
+      setError(null);
+    }
+    onProfileResolved?.(profile);
+  }
+
   return (
     <div className="space-y-6">
       <form className="space-y-3" onSubmit={handleSearch}>
         <label className="flex flex-col gap-2">
           <span className="text-sm font-medium text-holNavy">Search by alias</span>
-          <div className="flex items-center gap-3">
+          <div className="relative flex items-center gap-3">
             <input
               type="text"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSuggestionsOpen(true);
+              }}
+              onFocus={() => setSuggestionsOpen(true)}
+              onBlur={() => {
+                window.setTimeout(() => setSuggestionsOpen(false), 120);
+              }}
               placeholder="alice-agent"
               className="flex-1 rounded-md border border-holNavy/20 px-3 py-2 text-sm shadow-sm focus:border-holBlue focus:outline-none focus:ring-2 focus:ring-holBlue/30"
             />
@@ -101,6 +172,56 @@ export function AliasSearchPanel({ onProfileResolved }: AliasSearchPanelProps) {
             >
               {state === "searching" ? "Searching…" : "Search"}
             </button>
+
+            {suggestionsOpen ? (
+              <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+                  <span>{suggestionsLoading ? "Searching registry…" : "Suggestions"}</span>
+                  <span className="font-mono">{network}</span>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {suggestionsLoading ? (
+                    <div className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
+                      Loading…
+                    </div>
+                  ) : suggestions.length === 0 ? (
+                    <div className="px-3 py-3 text-sm text-gray-600 dark:text-gray-300">
+                      No matches yet. Try typing a longer alias.
+                    </div>
+                  ) : (
+                    suggestions.map((profile) => (
+                      <button
+                        key={profile.accountId}
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          handleSuggestionPick(profile);
+                        }}
+                        className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold text-gray-900 dark:text-gray-50">
+                            {profile.displayName ?? profile.alias ?? profile.accountId}
+                          </span>
+                          <span className="block truncate text-xs text-gray-600 dark:text-gray-300">
+                            {profile.alias ? `@${profile.alias}` : ""} · {profile.accountId}
+                          </span>
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            profile.inboundTopicId
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100"
+                              : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-100"
+                          }`}
+                        >
+                          {profile.inboundTopicId ? "Ready" : "No inbox"}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
           {error ? (
             <span className="text-xs text-red-600">{error}</span>

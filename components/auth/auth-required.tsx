@@ -36,11 +36,7 @@ export function AuthRequired({
       <div className={contentClassName}>{children}</div>
       {!enabled ? (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm">
-            <Card className="w-full max-w-md border-border bg-card/90 p-6 text-center shadow-xl ring-1 ring-border/40">
-              <div className="text-xs font-mono uppercase tracking-[0.3em] text-muted-foreground">
-              <span className="text-foreground/60">{"//"}</span>{" "}
-              AUTHENTICATION_REQUIRED
-              </div>
+          <Card className="w-full max-w-md border-border bg-card/90 p-6 text-center shadow-xl ring-1 ring-border/40">
             <h3 className="mt-6 text-2xl font-bold text-foreground bg-gradient-to-r from-brand-blue via-brand-purple to-brand-green bg-clip-text text-transparent">
               {title}
             </h3>

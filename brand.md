@@ -1,48 +1,15 @@
-Brand Kit
-Official HOL brand guidelines, colors, logos, and assets.
-Everything you need to represent HOL consistently and professionally.
+# Brand
 
-reinventing:("the_internet")
-Color Palette
-Primary Colors
-Dark Blue
+This app follows the HOL design system as used across hol.org.
 
-#3f4174
+## Colors
 
-rgb(63, 65, 116)
-Blue
+- `#3F4174` (primary / dark blue)
+- `#5599FE` (primary / blue)
+- `#A679F0` (accent / purple)
+- `#48DF7B` (accent / green)
 
-#5599fe
+## Typography
 
-rgb(85, 153, 254)
-secondary Colors
-Purple
-
-#a679f0
-
-rgb(166, 121, 240)
-Green
-
-#48df7b
-
-rgb(72, 223, 123)
-Typography
-Primary Font
-Roboto Mono
-Used for headings, code blocks, and technical content
-
-Regular 400
-
-Medium 500
-
-Bold 700
-
-Secondary Font
-Roboto
-Used for body text and general content
-
-Regular 400
-
-Medium 500
-
-Bold 700
+- Primary: `Roboto Mono` (headings, technical UI)
+- Secondary: `Roboto` (body text)

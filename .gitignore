@@ -16,6 +16,10 @@
 # next.js
 /.next/
 /out/
+.open-next/
+.wrangler/
+.tmp/
+worker.patched.js
 
 # production
 /build
