@@ -21,7 +21,9 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://petals.hol.org",
+  ),
   title: "HOL Petal Platform",
   description:
     "HOL-built Hedera dApp for profiles, petals, and messaging.",
