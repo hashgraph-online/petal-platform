@@ -22,7 +22,10 @@ const robotoMono = Roboto_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://petals.hol.org",
+    process.env.NEXT_PUBLIC_APP_URL &&
+      !process.env.NEXT_PUBLIC_APP_URL.includes("localhost")
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : "https://petals.hol.org",
   ),
   title: "HOL Petal Platform",
   description:
