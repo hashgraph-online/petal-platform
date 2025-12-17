@@ -11,6 +11,7 @@ import type { DAppSigner } from "@/lib/hedera/wallet-types";
 import { requireWalletConnectSigner } from "@/lib/hedera/wallet-types";
 
 type Network = "mainnet" | "testnet";
+type HolderInscription = HolderInscriptionsResponse[number];
 
 type ProfileImageSelectorProps = {
   value: string;
@@ -48,7 +49,10 @@ function extractTopicId(value: string): string | null {
 }
 
 function filterCompletedImages(items: HolderInscriptionsResponse): HolderInscriptionsResponse {
-  return items.filter((item) => item.completed && typeof item.topic_id === "string" && item.topic_id.length > 0);
+  return items.filter(
+    (item: HolderInscription) =>
+      item.completed && typeof item.topic_id === "string" && item.topic_id.length > 0,
+  );
 }
 
 export function ProfileImageSelector({
@@ -267,7 +271,7 @@ export function ProfileImageSelector({
     if (!query) {
       return inscriptions;
     }
-    return inscriptions.filter((item) => {
+    return inscriptions.filter((item: HolderInscription) => {
       const topicId = (item.topic_id || "").toLowerCase();
       const name = (item.name || "").toLowerCase();
       return topicId.includes(query) || name.includes(query);
@@ -330,7 +334,7 @@ export function ProfileImageSelector({
                     No inscriptions found for this wallet.
                   </div>
                 ) : (
-                  filteredInscriptions.map((item) => {
+                  filteredInscriptions.map((item: HolderInscription) => {
                     const topicId = item.topic_id;
                     const previewUrl = toCdnUrl(topicId, network);
                     return (
