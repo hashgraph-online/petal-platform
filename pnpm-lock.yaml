@@ -10,6 +10,10 @@ overrides:
   '@reown/appkit': 1.8.15
   '@reown/appkit-controllers': 1.8.15
   '@hashgraph/hedera-wallet-connect': 2.0.4
+  ipfs-http-client>parse-duration: 2.1.3
+  ipfs-core-utils>parse-duration: 2.1.3
+  ipfs-core-utils>nanoid: 5.0.9
+  interface-datastore>nanoid: 5.0.9
 
 importers:
 
@@ -6747,9 +6751,9 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  nanoid@4.0.2:
-    resolution: {integrity: sha512-7ZtY5KTCNheRGfEFxnedV5zFiORN1+Y1N6zvPTnHQd8ENUvfaDBeuJDZb2bN/oXwXxu3qkTXDzy57W5vAmDTBw==}
-    engines: {node: ^14 || ^16 || >=18}
+  nanoid@5.0.9:
+    resolution: {integrity: sha512-Aooyr6MXU6HpvvWXKoVoXwKMs/KyVakWwg7xQfv5/S/RIgJMy0Ifa45H9qqYy7pTCszrHzP21Uk4PZq2HpEM8Q==}
+    engines: {node: ^18 || >=20}
     hasBin: true
 
   napi-postinstall@0.3.4:
@@ -7052,8 +7056,8 @@ packages:
     resolution: {integrity: sha512-fIYNuZ/HastSb80baGOuPRo1O9cf4baWw5WsAp7dBuUzeTD/BoaG8sVTdlPFksBE2lF21dN+A1AnrpIjSWqHHg==}
     engines: {node: '>= 0.10'}
 
-  parse-duration@1.1.2:
-    resolution: {integrity: sha512-p8EIONG8L0u7f8GFgfVlL4n8rnChTt8O5FSxgxMz2tjc9FMP199wxVKVB6IbKx11uTbKHACSvaLVIKNnoeNR/A==}
+  parse-duration@2.1.3:
+    resolution: {integrity: sha512-MtbharL7Bets65qDBXuDOHHWyY1BxTJZmJ/xGmS90iEbKE0gZ6yZpZtCda7O79GeOi/f0NwBaplIuReExIoVsw==}
 
   parse5@8.0.0:
     resolution: {integrity: sha512-9m4m5GSgXjL4AjumKzq1Fgfp3Z8rsvjRNbnkVwfu2ImRqE5D0LnY2QfDen18FSY9C573YU5XxSapdHZTZ2WolA==}
@@ -17260,7 +17264,7 @@ snapshots:
   interface-datastore@7.0.4:
     dependencies:
       interface-store: 3.0.4
-      nanoid: 4.0.2
+      nanoid: 5.0.9
       uint8arrays: 4.0.10
 
   interface-datastore@8.3.2:
@@ -17332,8 +17336,8 @@ snapshots:
       it-to-stream: 1.0.0
       merge-options: 3.0.4
       multiformats: 11.0.2
-      nanoid: 4.0.2
-      parse-duration: 1.1.2
+      nanoid: 5.0.9
+      parse-duration: 2.1.3
       timeout-abort-controller: 3.0.0
       uint8arrays: 4.0.10
     transitivePeerDependencies:
@@ -17358,7 +17362,7 @@ snapshots:
       it-last: 2.0.1
       merge-options: 3.0.4
       multiformats: 11.0.2
-      parse-duration: 1.1.2
+      parse-duration: 2.1.3
       stream-to-it: 0.2.4
       uint8arrays: 4.0.10
     transitivePeerDependencies:
@@ -18337,7 +18341,7 @@ snapshots:
 
   nanoid@3.3.11: {}
 
-  nanoid@4.0.2: {}
+  nanoid@5.0.9: {}
 
   napi-postinstall@0.3.4: {}
 
@@ -18705,7 +18709,7 @@ snapshots:
       pbkdf2: 3.1.5
       safe-buffer: 5.2.1
 
-  parse-duration@1.1.2: {}
+  parse-duration@2.1.3: {}
 
   parse5@8.0.0:
     dependencies:
