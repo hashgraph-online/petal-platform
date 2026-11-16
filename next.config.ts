@@ -11,6 +11,7 @@ const serverExternalPackages = [
   'thread-stream',
 ];
 const nextConfig: NextConfig = {
+  output: 'standalone',
   outputFileTracingRoot,
   compress: true,
   reactStrictMode: true,
